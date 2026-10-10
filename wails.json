@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "photo-backup",
+  "outputfilename": "photo-backup",
+  "frontend:install": "npm ci",
+  "frontend:build": "npm run generate",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "podo4455",
+    "email": "fusrodah156027@gmail.com"
+  }
+}

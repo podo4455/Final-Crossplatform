@@ -1,0 +1,26 @@
+# Dependencies and generated output
+node_modules/
+frontend/.nuxt/
+frontend/.output/
+frontend/dist/
+build/bin/
+.cache/
+.setup-template/
+
+# Local data and credentials
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+backups/
+test-photos/
+*.log
+
+# Editor / operating system
+.DS_Store
+Thumbs.db
+.idea/
