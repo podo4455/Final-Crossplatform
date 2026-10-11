@@ -101,7 +101,7 @@ Nuxt pages/components → Wails binding → Go service → repository → SQLite
 Go events → Nuxt progress/status
 ```
 
-โครงสร้างที่เสนอ (ยังไม่ได้สร้างตัวแอป):
+โครงสร้างเป้าหมายที่เสนอ (ปัจจุบันมีโครง Wails/Nuxt และหน้าเลือกโฟลเดอร์แล้ว ส่วน service/ฐานข้อมูลด้านล่างยังเป็นแผน):
 
 ```text
 main.go / app.go          composition และ binding

@@ -5,3 +5,11 @@
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
+
+export function SelectDestination() {
+  return window['go']['main']['App']['SelectDestination']();
+}
+
+export function SelectSource() {
+  return window['go']['main']['App']['SelectSource']();
+}

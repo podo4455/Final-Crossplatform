@@ -1,24 +1,38 @@
 # Photo Backup — Final Crossplatform
 
-โปรเจกต์กลุ่ม 3 คน: Desktop app สำหรับสำรองรูปจาก Flash drive ด้วย Go/Wails, Nuxt และ SQLite/GORM
+Desktop app สำหรับสำรองรูปจาก Flash drive พัฒนาด้วย Go + Wails v2 และ Nuxt โดยกลุ่ม 3 คน เป้าหมายถัดไปคือ SQLite/GORM, คลังรูปภาพ และการค้นหาด้วย Tag จากการวิเคราะห์ภาพ
 
 ## สถานะปัจจุบัน
 
-เริ่มต้นโครง Wails v2 + Nuxt 4 และหน้าทดสอบ Nuxt เรียก Go ผ่าน Greet แล้ว ฟีเจอร์ Backup, SQLite/GORM, Gallery และ Analysis ยังไม่ได้พัฒนา
+อัปเดตวันที่ 11 ตุลาคม 2026
 
-## เครื่องมือ
+| ส่วนของโปรแกรม | สถานะ |
+| --- | --- |
+| Wails + Nuxt | เปิดแอปและเรียก Go ผ่าน Wails binding ได้ |
+| หน้าเว็บ | หน้าภาพรวมและหน้าสำรองรูป โทนขาว–เขียวอ่อน แยก pages/components |
+| เลือกโฟลเดอร์ | มี SelectSource / SelectDestination เปิดหน้าต่างเลือกต้นทางและปลายทางผ่าน Go; ยกเลิกแล้วคงค่าเดิม |
+| สำรองไฟล์ | ยังไม่ได้พัฒนา ปุ่มเริ่มสำรองถูกปิดไว้ |
+| SQLite/GORM และประวัติ | ยังไม่ได้พัฒนา |
+| คลังรูปภาพ / วิเคราะห์ภาพ / Tag Cloud / ค้นหา | ยังไม่ได้พัฒนา เมนูระบุว่าเร็ว ๆ นี้ |
+| macOS | มีแนวทางตั้งค่าตามบทเรียน แต่ยังไม่ได้ทดสอบบนเครื่องจริง |
 
-- Go 1.25 ขึ้นไป ตาม go.mod (เครื่องเริ่มต้นใช้ 1.26.4)
-- Node.js 24 LTS (เครื่องเริ่มต้นใช้ 24.18.0) และ npm
+![หน้าภาพรวม](docs/previews/home.jpg)
+
+[ดูภาพหน้าสำรองรูป](docs/previews/backup.jpg) — ภาพต้นแบบสำหรับคุยกับทีม ยังไม่ใช่ระบบ Backup ที่ทำงานครบ
+
+## เครื่องมือที่ต้องติดตั้ง
+
+- Go 1.25 ขึ้นไปตาม go.mod (เครื่องเริ่มต้นใช้ 1.26.4)
+- Node.js 24 LTS และ npm (เครื่องเริ่มต้นใช้ 24.18.0)
 - Wails CLI v2.13.0
-- Windows: WebView2; macOS: Xcode Command Line Tools ตาม Wails installation guide
-- Nuxt 4.6.1, Vue 3.5.43 และ Vue Router 5.1.0 (อัปเดตภายใน major เดิมจากตัวอย่างบทเรียนและล็อกใน lockfile)
+- Windows: WebView2; macOS: Xcode Command Line Tools ตาม [Wails installation](https://v2.wails.io/docs/gettingstarted/installation/)
+- dependency ranges ตามบทเรียน: Nuxt ^4.4.7, Vue ^3.5.35, Vue Router ^5.1.0; lockfile ปัจจุบันใช้ 4.6.1 / 3.5.43 / 5.1.0
 
-## เริ่มใช้งาน
-
-รันจาก root ของ repository:
+## เปิดแอปเพื่อพัฒนา
 
 ```sh
+git clone https://github.com/podo4455/Final-Crossplatform.git
+cd Final-Crossplatform
 wails doctor
 cd frontend
 npm ci
@@ -27,33 +41,67 @@ go mod download
 wails dev
 ```
 
-กดปุ่มทดสอบการเชื่อมต่อในหน้าต่าง Wails ต้องได้รับข้อความภาษาไทยจาก Go การเปิดเฉพาะหน้าเว็บใน browser จะไม่มี Wails binding สำหรับเรียก Go
+หาก clone ไว้แล้ว ให้เริ่มคำสั่งจาก root ของ repository หลังอัปเดตโค้ด
 
-Build ตัวแอป:
+- หน้าแรก: กด “เริ่มสำรองรูปภาพ” เพื่อไปหน้าเลือกโฟลเดอร์
+- หน้า Backup: เลือกต้นทางและปลายทางได้ในหน้าต่าง Wails ยังไม่มีการคัดลอกหรือย้ายไฟล์
+- ทดสอบ Go: เปิดส่วน “เครื่องมือสำหรับทีม” ที่หน้าแรก แล้วกดทดสอบการเชื่อมต่อ
+
+สำหรับ macOS ให้ปรับ script `dev` ใน frontend/package.json เป็น `TMPDIR=/tmp nuxt dev` ตามบทเรียนก่อนรัน `wails dev` (มี `dev:mac` เก็บไว้สำหรับเรียก Nuxt โดยตรง)
+
+### ดูเฉพาะหน้าตาใน browser
+
+```sh
+cd frontend
+npm run dev
+```
+
+เปิด URL ที่ Nuxt แสดง เช่น http://localhost:3000/#/ แล้วใช้เมนูเปลี่ยนหน้าได้ การเลือกโฟลเดอร์และเรียก Go ต้องเปิดผ่าน Wails; browser ธรรมดาจะแสดงข้อความแจ้งเมื่อกดปุ่มเหล่านี้
+
+## Build
+
+รันจาก root:
 
 ```sh
 wails build
 ```
 
-ผลลัพธ์อยู่ใน build/bin ของ OS ที่ build ต้องทดสอบ macOS บนเครื่องจริงแยกจาก Windows
+ไฟล์แอปอยู่ใน `build/bin/` ของ OS ที่ build ต้องทดสอบและ build macOS บนเครื่องที่รองรับแยกจาก Windows
 
-## จุดที่ควรอ่านก่อนแยกงาน
+`frontend/dist/.gitkeep` เก็บไว้เพื่อให้ Go embed มีไฟล์บน clone ใหม่ ส่วนไฟล์เว็บจริงสร้างด้วย `npm run generate` และไม่ commit หาก generate ล้าง .gitkeep ให้สร้างไฟล์นี้กลับก่อน commit
 
-- [แผนแบ่งงาน](docs/TEAM_PLAN.md)
-- [รายการ Issue](docs/ISSUE_BACKLOG.md)
-- [คู่มือเริ่ม GitHub](docs/GETTING_STARTED.md)
-- main.go: เปิดหน้าต่างและ Bind app
-- app.go: เมธอด Go ที่ Frontend เรียกได้
-- frontend/app/pages/index.vue: async/await เรียก generated binding
-- frontend/nuxt.config.ts: SPA, hash routing และ generate ไป frontend/dist
-- frontend/wailsjs/: Wails สร้างให้ ไม่แก้ด้วยมือ
+## โครงสร้างไฟล์
 
-Commit lockfiles และ source; ไม่ commit build/bin, node_modules, DB, key หรือรูปส่วนตัว
+| ไฟล์ / โฟลเดอร์ | หน้าที่ |
+| --- | --- |
+| main.go | เปิดหน้าต่าง Wails, embed frontend และ bind App |
+| app.go | เก็บ context และเมธอด Go: Greet, SelectSource, SelectDestination |
+| wails.json | คำสั่ง install / generate / dev และชื่อแอป |
+| frontend/nuxt.config.ts | SPA, hash router, HMR และ output ตามบทเรียน |
+| frontend/app/app.vue | ครอบทุกหน้าด้วย AppShell และแสดง NuxtPage |
+| frontend/app/pages/index.vue | หน้าภาพรวมและส่วนทดสอบการเชื่อมต่อ Go |
+| frontend/app/pages/backup.vue | หน้าเลือกโฟลเดอร์และจัดการผลจาก Go |
+| frontend/app/components/AppShell.vue | เมนูและกรอบหน้าหลักที่ใช้ร่วมกัน |
+| frontend/app/components/FolderSelector.vue | ช่องแสดง path และปุ่มเลือกโฟลเดอร์ |
+| frontend/app/components/AppIcon.vue | ไอคอน SVG ที่ใช้ร่วมกัน |
+| frontend/app/components/PhotoIllustration.vue | ภาพประกอบ SVG หน้าแรก |
+| frontend/app/assets/css/main.css | สี ระยะห่าง และการจัดหน้าตามขนาดจอ |
+| frontend/wailsjs/ | bindings ที่ Wails สร้าง ไม่แก้ด้วยมือ |
+| docs/previews/ | ภาพหน้าจอสำหรับคุยกับทีม |
+
+Nuxt config และคำสั่ง Wails ยึด `05-Wails Application/01-Initial Wails Project.md` ของรายวิชา ส่วนหน้าตา components, CSS, ชื่อแอป และ .gitkeep เป็นส่วนที่เพิ่มสำหรับโปรเจกต์กลุ่ม ไม่มี wrapper script สำหรับ dev แล้ว
+
+## ทำงานร่วมกัน
+
+- [แผนแบ่งงาน 3 คน](docs/TEAM_PLAN.md)
+- [รายการงานสำหรับสร้าง Issue](docs/ISSUE_BACKLOG.md)
+- [คู่มือ GitHub และเริ่มงานของเพื่อน](docs/GETTING_STARTED.md)
+- [บันทึกการตรวจสอบ](docs/SETUP_VERIFICATION.md)
+
+ขั้นถัดไป: ตกลง schema/DTO ร่วมกัน จากนั้น A ต่อการ scan และ Backup, B ทำ SQLite/GORM และคลังรูป, C ทดลองวิเคราะห์ภาพและ Tag โดยแยก branch ต่อ Issue และให้เพื่อน review PR
+
+Commit source และ lockfiles; ไม่ commit build/bin, node_modules, ฐานข้อมูล, key หรือรูปส่วนตัว ภาพใน docs/previews เป็นภาพ UI ของต้นแบบ
 
 ## Dependency audit
 
-ตรวจ npm audit วันที่ 10 ตุลาคม 2026: หลังอัปเดต Nuxt/Vue ยังมี 14 รายการที่ npm รายงาน (7 high, 7 critical รวม dependencies ที่ส่งผลต่อกัน) ใน Nuxt/toolchain เช่น simple-git, node-forge และ braces ไม่ได้ยืนยันว่าแอป SPA นี้มีช่องทางโจมตีครบตาม advisory ทุกข้อ และไม่ได้ใช้ npm audit fix --force เพราะเสนอให้ downgrade Nuxt ข้าม major ต้องติดตามรุ่นแก้ต่อก่อนส่งงานจริง
-
-## อ้างอิง
-
-ยึดบทเรียน Wails ของรายวิชาเป็นหลัก โดยตรวจเพิ่มเติมจาก [Wails installation](https://v2.wails.io/docs/gettingstarted/installation/) และ [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow)
+ผลตรวจเดิมวันที่ 10 ตุลาคม 2026: npm audit รายงาน 14 รายการ (7 high, 7 critical รวม dependencies ที่ส่งผลต่อกัน) ใน Nuxt/toolchain เช่น simple-git, node-forge และ braces ยังไม่ได้ตรวจ audit ใหม่ในการปรับ UI ครั้งนี้ และไม่ได้ใช้ npm audit fix --force เพราะเสนอการเปลี่ยน Nuxt ข้าม major ควรติดตามแพตช์ก่อนส่งงานจริง

@@ -8,14 +8,14 @@ repository ของกลุ่ม: https://github.com/podo4455/Final-Crossplat
 
 เพิ่มเพื่อนทั้งสองคนใน Settings → Collaborators (ชื่อเมนูอาจต่างตามประเภทบัญชี) และให้เพื่อนรับคำเชิญ
 
-## 2. Push โครงเริ่มต้น
+## 2. อัปเดตงานขึ้น GitHub
 
 เมื่อทดสอบโครงผ่านและตรวจไฟล์ที่จะ commit แล้ว:
 
 ```sh
 git add .
 git diff --cached --stat
-git commit -m "chore: initialize Wails Nuxt project and team plan"
+git commit -m "feat: describe the completed change"
 # remote origin ของเครื่องเริ่มต้นตั้งไว้แล้ว
 git push -u origin main
 ```
@@ -34,11 +34,11 @@ go mod download
 wails dev
 ```
 
-ติดตั้ง Go, Node และ Wails ก่อนตาม README แล้วกดทดสอบ Nuxt ↔ Go บนเครื่องตัวเอง
+ติดตั้ง Go, Node และ Wails ก่อนตาม README แล้วเปิดส่วน “เครื่องมือสำหรับทีม” ในหน้าภาพรวมเพื่อทดสอบ Nuxt ↔ Go และลองเลือกโฟลเดอร์ที่หน้าสำรองรูปบนเครื่องตัวเอง
 
 ## 4. งานแรกของแต่ละคน
 
-- A: ใช้ scaffold นี้เป็นฐาน ทำ Issue A2 เลือก source/destination และ scan รูป หลังตกลง DTO ใน B1
+- A: มีหน้าและเมธอดเลือก source/destination แล้ว ให้ต่อ Issue A2 ตรวจ path และ scan รูป หลังตกลง DTO ใน B1
 - B: ทำ Issue B1 ตกลง schema/DTO ร่วมกับทีม แล้ว B2 SQLite/GORM
 - C: เริ่ม Issue C1 ทดลองวิเคราะห์รูปจริงทันที ระหว่างรอฐานข้อมูล
 

@@ -1,3 +1,3 @@
 <template>
-  <NuxtPage />
+  <AppShell><NuxtPage /></AppShell>
 </template>
