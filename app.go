@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"photo-backup/service"
 	"sync"
+	"time"
 
 	"photo-backup/database"
 
@@ -19,15 +21,67 @@ type App struct {
 	db       *gorm.DB
 }
 
+// saveCopiedPhotos บันทึกเฉพาะไฟล์ที่ Copy สำเร็จลงฐานข้อมูล
+func (a *App) saveCopiedPhotos(result service.Result) error {
+	if a.db == nil {
+		return fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	for _, file := range result.Files {
+		if file.Status != "copied" {
+			continue
+		}
+
+		copiedAt, err := time.Parse(time.RFC3339, file.CopiedAt)
+		if err != nil {
+			return fmt.Errorf("อ่านเวลาสำรองของ %s ไม่สำเร็จ: %w", file.Source, err)
+		}
+
+		photo := &database.Photo{
+			FileName:        filepath.Base(file.Destination),
+			SourcePath:      file.Source,
+			DestinationPath: file.Destination,
+			FileSize:        file.Size,
+			BackupStatus:    "copied",
+			BackedUpAt:      copiedAt,
+		}
+
+		if err := database.SavePhoto(a.db, photo); err != nil {
+			return fmt.Errorf("บันทึกข้อมูลรูป %s ไม่สำเร็จ: %w", file.Source, err)
+		}
+	}
+
+	return nil
+}
+
+// GetPhotos คืนรายการรูปที่เคยสำรองไว้ เพื่อส่งให้หน้า Gallery
+func (a *App) GetPhotos() ([]database.Photo, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.ListPhotos(a.db)
+}
+
 // BackupPhotos is the Wails application boundary; filesystem logic lives in service.
 func (a *App) BackupPhotos(source, destination string) (service.Result, error) {
 	if !a.backupMu.TryLock() {
 		return service.Result{}, fmt.Errorf("กำลังสำรองรูปอยู่ กรุณารอให้เสร็จ")
 	}
 	defer a.backupMu.Unlock()
-	return service.CopyImages(a.ctx, source, destination, func(progress service.Progress) {
+
+	result, err := service.CopyImages(a.ctx, source, destination, func(progress service.Progress) {
 		runtime.EventsEmit(a.ctx, "backup:progress", progress)
 	})
+	if err != nil {
+		return result, err
+	}
+
+	if err := a.saveCopiedPhotos(result); err != nil {
+		return result, err
+	}
+
+	return result, nil
 }
 
 // NewApp creates a new App application struct
@@ -72,9 +126,19 @@ func (a *App) BackupSelectedPhotos(paths []string, destination string) (service.
 		return service.Result{}, fmt.Errorf("กำลังสำรองรูปอยู่ กรุณารอให้เสร็จ")
 	}
 	defer a.backupMu.Unlock()
-	return service.CopySelectedImages(a.ctx, paths, destination, func(progress service.Progress) {
+
+	result, err := service.CopySelectedImages(a.ctx, paths, destination, func(progress service.Progress) {
 		runtime.EventsEmit(a.ctx, "backup:progress", progress)
 	})
+	if err != nil {
+		return result, err
+	}
+
+	if err := a.saveCopiedPhotos(result); err != nil {
+		return result, err
+	}
+
+	return result, nil
 }
 
 func (a *App) SelectSource() (string, error) {

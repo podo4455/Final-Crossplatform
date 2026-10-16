@@ -14,6 +14,10 @@ export function BackupSelectedPhotos(arg1, arg2) {
   return window['go']['main']['App']['BackupSelectedPhotos'](arg1, arg2);
 }
 
+export function GetPhotos() {
+  return window['go']['main']['App']['GetPhotos']();
+}
+
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
