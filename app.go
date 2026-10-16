@@ -6,13 +6,17 @@ import (
 	"photo-backup/service"
 	"sync"
 
+	"photo-backup/database"
+
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"gorm.io/gorm"
 )
 
 // App struct
 type App struct {
 	ctx      context.Context
 	backupMu sync.Mutex
+	db       *gorm.DB
 }
 
 // BackupPhotos is the Wails application boundary; filesystem logic lives in service.
@@ -35,6 +39,15 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	db, err := database.Open()
+	if err != nil {
+		runtime.LogError(ctx, err.Error())
+		return
+	}
+
+	a.db = db
+	runtime.LogInfo(ctx, "เปิดฐานข้อมูล SQLite สำเร็จ")
 }
 
 // Greet returns a greeting for the given name
