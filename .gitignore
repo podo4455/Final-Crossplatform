@@ -9,7 +9,6 @@ build/bin/
 frontend/package.json.md5
 .cache/
 .setup-template/
-.tools/
 
 # Local data and credentials
 .env

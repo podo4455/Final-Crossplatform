@@ -16,11 +16,9 @@ import (
 
 // App struct
 type App struct {
-	ctx        context.Context
-	backupMu   sync.Mutex
-	analysisMu sync.Mutex
-	previewMu  sync.Mutex
-	db         *gorm.DB
+	ctx      context.Context
+	backupMu sync.Mutex
+	db       *gorm.DB
 }
 
 // saveCopiedPhotos บันทึกเฉพาะไฟล์ที่ Copy สำเร็จลงฐานข้อมูล
