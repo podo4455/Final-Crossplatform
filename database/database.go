@@ -22,7 +22,7 @@ func Open() (*gorm.DB, error) {
 		return nil, fmt.Errorf("เปิดฐานข้อมูลไม่สำเร็จ: %w", err)
 	}
 
-	if err := db.AutoMigrate(&Photo{}); err != nil {
+	if err := db.AutoMigrate(&Photo{}, &Tag{}, &PhotoTag{}); err != nil {
 		return nil, fmt.Errorf("สร้างตาราง photos ไม่สำเร็จ: %w", err)
 	}
 

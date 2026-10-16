@@ -63,6 +63,42 @@ func (a *App) GetPhotos() ([]database.Photo, error) {
 	return database.ListPhotos(a.db)
 }
 
+// SetPhotoTags บันทึก Tag ที่ได้จากระบบวิเคราะห์ภาพ
+func (a *App) SetPhotoTags(photoID uint, tagNames []string) ([]database.Tag, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.SetPhotoTags(a.db, photoID, tagNames)
+}
+
+// GetPhotoTags คืน Tag ของรูปหนึ่งรูป
+func (a *App) GetPhotoTags(photoID uint) ([]database.Tag, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.ListPhotoTags(a.db, photoID)
+}
+
+// SearchPhotosByTag ค้นหารูปที่มี Tag ตรงกับคำค้นหา
+func (a *App) SearchPhotosByTag(tagName string) ([]database.Photo, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.SearchPhotosByTag(a.db, tagName)
+}
+
+// GetTagCloud คืน Tag ทั้งหมดพร้อมจำนวนรูปที่เกี่ยวข้อง
+func (a *App) GetTagCloud() ([]database.TagCloudItem, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.GetTagCloud(a.db)
+}
+
 // BackupPhotos is the Wails application boundary; filesystem logic lives in service.
 func (a *App) BackupPhotos(source, destination string) (service.Result, error) {
 	if !a.backupMu.TryLock() {

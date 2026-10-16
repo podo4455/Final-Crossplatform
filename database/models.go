@@ -15,3 +15,25 @@ type Photo struct {
 	CreatedAt       time.Time `json:"createdAt"`
 	UpdatedAt       time.Time `json:"updatedAt"`
 }
+
+// Tag คือคำที่ใช้อธิบายหรือค้นหารูป เช่น แมว, ทะเล, อาหาร
+type Tag struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"not null;uniqueIndex" json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// PhotoTag เชื่อมรูปหนึ่งรูปกับ Tag หลายคำ
+// รูปหนึ่งรูปมีหลาย Tag และ Tag หนึ่งคำใช้กับหลายรูปได้
+type PhotoTag struct {
+	PhotoID   uint      `gorm:"primaryKey" json:"photoId"`
+	TagID     uint      `gorm:"primaryKey" json:"tagId"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// TagCloudItem คือข้อมูลหนึ่งคำสำหรับแสดง Tag Cloud
+type TagCloudItem struct {
+	ID         uint   `json:"id"`
+	Name       string `json:"name"`
+	PhotoCount int64  `json:"photoCount"`
+}

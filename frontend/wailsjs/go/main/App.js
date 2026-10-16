@@ -14,12 +14,24 @@ export function BackupSelectedPhotos(arg1, arg2) {
   return window['go']['main']['App']['BackupSelectedPhotos'](arg1, arg2);
 }
 
+export function GetPhotoTags(arg1) {
+  return window['go']['main']['App']['GetPhotoTags'](arg1);
+}
+
 export function GetPhotos() {
   return window['go']['main']['App']['GetPhotos']();
 }
 
+export function GetTagCloud() {
+  return window['go']['main']['App']['GetTagCloud']();
+}
+
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
+}
+
+export function SearchPhotosByTag(arg1) {
+  return window['go']['main']['App']['SearchPhotosByTag'](arg1);
 }
 
 export function SelectDestination() {
@@ -32,4 +44,8 @@ export function SelectPhotos() {
 
 export function SelectSource() {
   return window['go']['main']['App']['SelectSource']();
+}
+
+export function SetPhotoTags(arg1, arg2) {
+  return window['go']['main']['App']['SetPhotoTags'](arg1, arg2);
 }
