@@ -23,11 +23,11 @@ async function checkConnection() {
       </div>
       <PhotoIllustration />
     </section>
-    <div class="section-heading"><h2>พื้นที่สำหรับรูปภาพของคุณ</h2><span>แนวทางฟีเจอร์ที่ทีมจะพัฒนาร่วมกัน</span></div>
+    <div class="section-heading"><h2>พื้นที่สำหรับรูปภาพของคุณ</h2><span>สำรอง วิเคราะห์ และค้นหารูป</span></div>
     <section class="roadmap" aria-label="ฟีเจอร์ของโปรเจกต์">
-      <article class="feature-card"><div class="feature-icon"><AppIcon name="folder" /></div><h2>สำรองรูปภาพ</h2><p>เลือกต้นทางและปลายทาง<br>เพื่อจัดเก็บรูปในคอมพิวเตอร์</p><small>คัดลอกรวมโฟลเดอร์ย่อย · เก็บต้นฉบับไว้</small></article>
-      <article class="feature-card"><div class="feature-icon"><AppIcon name="gallery" /></div><h2>คลังรูปภาพ</h2><p>ดูรูปที่สำรองไว้ในที่เดียว<br>พร้อมข้อมูลและประวัติการจัดเก็บ</p><small>วางแผนพัฒนา</small></article>
-      <article class="feature-card"><div class="feature-icon"><AppIcon name="sparkles" /></div><h2>ค้นหาด้วย Tag</h2><p>ค้นหาความทรงจำจากคำที่เกี่ยวข้อง<br>ด้วย Tag ที่ได้จากการวิเคราะห์ภาพ</p><small>วางแผนพัฒนา</small></article>
+      <article class="feature-card"><div class="feature-icon"><AppIcon name="folder" /></div><h2>สำรองรูปภาพ</h2><p>เลือกรูปและปลายทาง<br>เพื่อจัดเก็บรูปในคอมพิวเตอร์</p><small>เลือกได้หลายรูป · เก็บต้นฉบับไว้</small></article>
+      <article class="feature-card"><div class="feature-icon"><AppIcon name="gallery" /></div><h2>คลังรูปภาพ</h2><p>ดูภาพและข้อมูลที่สำรองไว้<br>วิเคราะห์รูปด้วยโมเดลในเครื่อง</p><NuxtLink to="/gallery">เปิดคลังรูปภาพ</NuxtLink></article>
+      <article class="feature-card"><div class="feature-icon"><AppIcon name="sparkles" /></div><h2>ค้นหาด้วย Tag</h2><p>ค้นหารูปจากคำที่บันทึกไว้<br>หรือเลือกคำใน Tag Cloud</p><NuxtLink to="/tags">ค้นหารูปภาพ</NuxtLink></article>
     </section>
     <details class="connection">
       <summary>เครื่องมือสำหรับทีม · ทดสอบการเชื่อมต่อ Nuxt กับ Go</summary>

@@ -3,11 +3,15 @@
 import {service} from '../models';
 import {database} from '../models';
 
+export function AnalyzePhoto(arg1:number):Promise<Array<string>>;
+
 export function BackupPhoto(arg1:string,arg2:string):Promise<service.Result>;
 
 export function BackupPhotos(arg1:string,arg2:string):Promise<service.Result>;
 
 export function BackupSelectedPhotos(arg1:Array<string>,arg2:string):Promise<service.Result>;
+
+export function GetPhotoPreview(arg1:number):Promise<string>;
 
 export function GetPhotoTags(arg1:number):Promise<Array<database.Tag>>;
 
