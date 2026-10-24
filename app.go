@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"mime"
+	"os"
 	"path/filepath"
+	"photo-backup/analysis"
 	"photo-backup/service"
 	"sync"
 	"time"
@@ -16,9 +20,10 @@ import (
 
 // App struct
 type App struct {
-	ctx      context.Context
-	backupMu sync.Mutex
-	db       *gorm.DB
+	ctx       context.Context
+	backupMu  sync.Mutex
+	db        *gorm.DB
+	analysis  *service.AnalysisService
 }
 
 // saveCopiedPhotos บันทึกเฉพาะไฟล์ที่ Copy สำเร็จลงฐานข้อมูล
@@ -99,6 +104,78 @@ func (a *App) GetTagCloud() ([]database.TagCloudItem, error) {
 	return database.GetTagCloud(a.db)
 }
 
+// AnalyzePhoto วิเคราะห์รูปภาพ 1 รูป และบันทึก Tag ลงฐานข้อมูล
+func (a *App) AnalyzePhoto(photoID uint) ([]database.Tag, error) {
+	if a.analysis == nil {
+		return nil, fmt.Errorf("ระบบวิเคราะห์ภาพยังไม่พร้อม")
+	}
+
+	return a.analysis.AnalyzePhoto(a.ctx, photoID)
+}
+
+// AnalyzePhotos วิเคราะห์หลายรูปพร้อมกัน
+func (a *App) AnalyzePhotos(photoIDs []uint) (map[uint][]database.Tag, error) {
+	if a.analysis == nil {
+		return nil, fmt.Errorf("ระบบวิเคราะห์ภาพยังไม่พร้อม")
+	}
+
+	return a.analysis.AnalyzePhotos(a.ctx, photoIDs)
+}
+
+// SetAnalysisAPIKey เปลี่ยน analyzer เป็น VisionAnalyzer เมื่อมี API key
+func (a *App) SetAnalysisAPIKey(apiKey string) error {
+	if a.db == nil {
+		return fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+	if apiKey == "" {
+		a.analysis = service.NewAnalysisService(a.db, analysis.MockAnalyzer{})
+		runtime.LogInfo(a.ctx, "เปลี่ยนเป็น MockAnalyzer")
+		return nil
+	}
+
+	key := apiKey
+	if key == "" {
+		key = os.Getenv("GOOGLE_VISION_API_KEY")
+	}
+	if key == "" {
+		return fmt.Errorf("กรุณาระบุ API key")
+	}
+
+	analyzer := analysis.VisionAnalyzer{APIKey: key}
+	a.analysis = service.NewAnalysisService(a.db, analyzer)
+	runtime.LogInfo(a.ctx, "เปลี่ยนเป็น Google Vision Analyzer")
+	return nil
+}
+
+// GetPhotoDataURL คืนรูปในรูปแบบ data URL เพื่อแสดงใน Gallery
+func (a *App) GetPhotoDataURL(photoID uint) (string, error) {
+	if a.db == nil {
+		return "", fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	var photo database.Photo
+	if err := a.db.First(&photo, photoID).Error; err != nil {
+		return "", err
+	}
+
+	if photo.DestinationPath == "" {
+		return "", fmt.Errorf("ไม่พบตำแหน่งไฟล์รูป")
+	}
+
+	data, err := os.ReadFile(photo.DestinationPath)
+	if err != nil {
+		return "", fmt.Errorf("อ่านไฟล์รูปไม่สำเร็�: %w", err)
+	}
+
+	mimeType := mime.TypeByExtension(filepath.Ext(photo.DestinationPath))
+	if mimeType == "" {
+		mimeType = "image/jpeg"
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(data)
+	return "data:" + mimeType + ";base64," + encoded, nil
+}
+
 // BackupPhotos is the Wails application boundary; filesystem logic lives in service.
 func (a *App) BackupPhotos(source, destination string) (service.Result, error) {
 	if !a.backupMu.TryLock() {
@@ -138,6 +215,11 @@ func (a *App) startup(ctx context.Context) {
 
 	a.db = db
 	runtime.LogInfo(ctx, "เปิดฐานข้อมูล SQLite สำเร็จ")
+
+	// ใช้ MockAnalyzer ไปก่อนจนกว่าจะมี Google Vision API key
+	analyzer := analysis.MockAnalyzer{}
+	a.analysis = service.NewAnalysisService(db, analyzer)
+	runtime.LogInfo(ctx, "เริ่มต้นระบบวิเคราะห์ภาพ (MockAnalyzer)")
 }
 
 // Greet returns a greeting for the given name

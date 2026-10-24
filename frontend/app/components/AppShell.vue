@@ -4,6 +4,7 @@ const route = useRoute();
 const pageTitle = computed(() => {
   if (route.path === "/backup") return "สำรองรูปภาพ";
   if (route.path === "/gallery") return "คลังรูปภาพ";
+  if (route.path === "/tags") return "ค้นหาด้วย Tag";
   return "ภาพรวม";
 });
 </script>
@@ -35,11 +36,13 @@ const pageTitle = computed(() => {
         >
           <AppIcon name="gallery" />คลังรูปภาพ
         </NuxtLink>
-        <span class="nav-item disabled" aria-disabled="true"
-          ><AppIcon name="sparkles" />ค้นหาด้วย Tag<span class="nav-soon"
-            >เร็ว ๆ นี้</span
-          ></span
+        <NuxtLink
+          class="nav-item"
+          :class="{ active: route.path === '/tags' }"
+          to="/tags"
         >
+          <AppIcon name="sparkles" />ค้นหาด้วย Tag
+        </NuxtLink>
       </nav>
       <div class="sidebar-note">
         พื้นที่เล็ก ๆ สำหรับ<br />ความทรงจำที่สำคัญของคุณ
