@@ -216,10 +216,17 @@ func (a *App) startup(ctx context.Context) {
 	a.db = db
 	runtime.LogInfo(ctx, "เปิดฐานข้อมูล SQLite สำเร็จ")
 
-	// ใช้ MockAnalyzer ไปก่อนจนกว่าจะมี Google Vision API key
-	analyzer := analysis.MockAnalyzer{}
+	// ถ้ามี GOOGLE_VISION_API_KEY ให้ใช้ Google Cloud Vision ไม่งั้นใช้ MockAnalyzer
+	var analyzer analysis.Analyzer
+	if key := os.Getenv("GOOGLE_VISION_API_KEY"); key != "" {
+		analyzer = analysis.VisionAnalyzer{APIKey: key}
+		runtime.LogInfo(ctx, "เริ่มต้นระบบวิเคราะห์ภาพ (Google Cloud Vision API)")
+	} else {
+		analyzer = analysis.MockAnalyzer{}
+		runtime.LogInfo(ctx, "เริ่มต้นระบบวิเคราะห์ภาพ (MockAnalyzer - ยังไม่มี GOOGLE_VISION_API_KEY)")
+	}
+
 	a.analysis = service.NewAnalysisService(db, analyzer)
-	runtime.LogInfo(ctx, "เริ่มต้นระบบวิเคราะห์ภาพ (MockAnalyzer)")
 }
 
 // Greet returns a greeting for the given name

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 
 	"photo-backup/analysis"
@@ -12,8 +13,8 @@ import (
 )
 
 const (
-	defaultAnalysisThreshold = 0.7
-	defaultAnalysisMaxTags   = 5
+	defaultAnalysisThreshold = 0.75
+	defaultAnalysisMaxTags   = 3
 )
 
 // AnalysisService ทำหน้าที่ประมวลผลวิเคราะห์รูปภาพ และแปลงผลเป็น Tag ในฐานข้อมูล
@@ -60,11 +61,21 @@ func (s *AnalysisService) AnalyzePhoto(ctx context.Context, photoID uint) ([]dat
 		return nil, errors.New("ไม่พบตำแหน่งไฟล์รูปในฐานข้อมูล")
 	}
 
+	// ล้าง Tag เก่าทิ้งก่อน เพื่อให้ใช้ผลจากการวิเคราะห์ครั้งล่าสุดแทน
+	if err := database.ClearPhotoTags(s.db, photoID); err != nil {
+		return nil, err
+	}
+
 	// เรียก analyzer เพื่อดึง Label จากรูป
 	labels, err := s.analyzer.DetectLabels(ctx, photo.DestinationPath)
 	if err != nil {
 		return nil, err
 	}
+
+	// เรียงตาม score มาก -> น้อย ก่อนกรอง เพื่อให้ได้แค่ Tag ที่มั่นใจที่สุด
+	sort.Slice(labels, func(i, j int) bool {
+		return labels[i].Score > labels[j].Score
+	})
 
 	// กรองตาม score และจำกัดจำนวน tag
 	tagNames := make([]string, 0, s.MaxTags)
