@@ -122,6 +122,34 @@ func (a *App) AnalyzePhotos(photoIDs []uint) (map[uint][]database.Tag, error) {
 	return a.analysis.AnalyzePhotos(a.ctx, photoIDs)
 }
 
+// AnalyzeUnanalyzedPhotos วิเคราะห์เฉพาะรูปที่ยังไม่มี Tag
+func (a *App) AnalyzeUnanalyzedPhotos() (map[uint][]database.Tag, error) {
+	if a.analysis == nil {
+		return nil, fmt.Errorf("ระบบวิเคราะห์ภาพยังไม่พร้อม")
+	}
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	var photos []database.Photo
+	if err := a.db.Find(&photos).Error; err != nil {
+		return nil, err
+	}
+
+	var ids []uint
+	for _, p := range photos {
+		var count int64
+		if err := a.db.Table("photo_tags").Where("photo_id = ?", p.ID).Count(&count).Error; err != nil {
+			continue
+		}
+		if count == 0 {
+			ids = append(ids, p.ID)
+		}
+	}
+
+	return a.analysis.AnalyzePhotos(a.ctx, ids)
+}
+
 // SetAnalysisAPIKey เปลี่ยน analyzer เป็น VisionAnalyzer เมื่อมี API key
 func (a *App) SetAnalysisAPIKey(apiKey string) error {
 	if a.db == nil {

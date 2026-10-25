@@ -7,6 +7,8 @@ export function AnalyzePhoto(arg1:number):Promise<Array<database.Tag>>;
 
 export function AnalyzePhotos(arg1:Array<number>):Promise<Record<number, Array<database.Tag>>>;
 
+export function AnalyzeUnanalyzedPhotos():Promise<Record<number, Array<database.Tag>>>;
+
 export function BackupPhoto(arg1:string,arg2:string):Promise<service.Result>;
 
 export function BackupPhotos(arg1:string,arg2:string):Promise<service.Result>;

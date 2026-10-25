@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"sync"
 
 	"photo-backup/analysis"
 	"photo-backup/database"
@@ -15,6 +16,7 @@ import (
 const (
 	defaultAnalysisThreshold = 0.75
 	defaultAnalysisMaxTags   = 3
+	defaultAnalysisWorkers   = 4
 )
 
 // AnalysisService ทำหน้าที่ประมวลผลวิเคราะห์รูปภาพ และแปลงผลเป็น Tag ในฐานข้อมูล
@@ -23,6 +25,7 @@ type AnalysisService struct {
 	analyzer  analysis.Analyzer
 	Threshold float64
 	MaxTags   int
+	Workers   int
 }
 
 // NewAnalysisService สร้าง service สำหรับวิเคราะห์รูปภาพ
@@ -39,6 +42,7 @@ func NewAnalysisService(db *gorm.DB, analyzer analysis.Analyzer) *AnalysisServic
 		analyzer:  analyzer,
 		Threshold: defaultAnalysisThreshold,
 		MaxTags:   defaultAnalysisMaxTags,
+		Workers:   defaultAnalysisWorkers,
 	}
 }
 
@@ -115,24 +119,52 @@ func (s *AnalysisService) AnalyzePhoto(ctx context.Context, photoID uint) ([]dat
 	return tags, nil
 }
 
-// AnalyzePhotos วิเคราะห์หลายรูปพร้อมกัน
+// AnalyzePhotos วิเคราะห์หลายรูปพร้อมกันแบบ Worker Pool
 func (s *AnalysisService) AnalyzePhotos(ctx context.Context, photoIDs []uint) (map[uint][]database.Tag, error) {
-	result := make(map[uint][]database.Tag, len(photoIDs))
+	if len(photoIDs) == 0 {
+		return map[uint][]database.Tag{}, nil
+	}
+
+	workers := s.Workers
+	if workers <= 0 {
+		workers = defaultAnalysisWorkers
+	}
+	if workers > len(photoIDs) {
+		workers = len(photoIDs)
+	}
+
+	result := make(map[uint][]database.Tag)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	sem := make(chan struct{}, workers)
 
 	for _, id := range photoIDs {
 		if err := ctx.Err(); err != nil {
-			return result, err
+			break
 		}
 
-		tags, err := s.AnalyzePhoto(ctx, id)
-		if err != nil {
-			// ข้ามรูปที่ error แล้วไปต่อ ไม่ให้ทั้ง batch ล้มเหลว
-			continue
-		}
-		if len(tags) > 0 {
-			result[id] = tags
-		}
+		wg.Add(1)
+		sem <- struct{}{}
+
+		go func(photoID uint) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			tags, err := s.AnalyzePhoto(ctx, photoID)
+			if err != nil {
+				return
+			}
+			if len(tags) == 0 {
+				return
+			}
+
+			mu.Lock()
+			result[photoID] = tags
+			mu.Unlock()
+		}(id)
 	}
 
+	wg.Wait()
 	return result, nil
 }

@@ -11,6 +11,27 @@ const error = ref('')
 const photoThumbs = ref<Record<number, string>>({})
 const loadingThumbs = ref<Record<number, boolean>>({})
 
+const currentPage = ref(1)
+const itemsPerPage = 12
+
+const totalPages = computed(() => Math.max(1, Math.ceil(photos.value.length / itemsPerPage)))
+
+const paginatedPhotos = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  const end = start + itemsPerPage
+  return photos.value.slice(start, end)
+})
+
+watch(photos, () => {
+  currentPage.value = 1
+})
+
+function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value) return
+  currentPage.value = page
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 async function loadTagCloud() {
   loadingTagCloud.value = true
   try {
@@ -114,17 +135,19 @@ onMounted(async () => {
 
       <p v-if="loadingTagCloud" class="subtitle">กำลังโหลด Tag Cloud...</p>
 
-      <div v-else-if="tagCloud.length > 0" class="tag-cloud">
-        <button
-          v-for="tag in tagCloud"
-          :key="tag.id"
-          class="tag-cloud-item"
-          :class="[getTagSize(tag.photoCount), { active: activeTag === tag.name }]"
-          @click="searchByTag(tag.name)"
-        >
-          {{ tag.name }}
-          <span class="tag-count">{{ tag.photoCount }}</span>
-        </button>
+      <div v-else-if="tagCloud.length > 0" class="tag-cloud-wrapper">
+        <div class="tag-cloud">
+          <button
+            v-for="tag in tagCloud"
+            :key="tag.id"
+            class="tag-cloud-item"
+            :class="[getTagSize(tag.photoCount), { active: activeTag === tag.name }]"
+            @click="searchByTag(tag.name)"
+          >
+            {{ tag.name }}
+            <span class="tag-count">{{ tag.photoCount }}</span>
+          </button>
+        </div>
       </div>
 
       <p v-else class="tag-empty">ยังไม่มี Tag ในระบบ</p>
@@ -141,19 +164,38 @@ onMounted(async () => {
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-else-if="loading" class="subtitle" role="status">กำลังค้นหา...</p>
 
-    <section v-else-if="photos.length" class="photo-grid">
-      <article v-for="photo in photos" :key="photo.id" class="photo-card">
-        <div class="photo-thumb">
-          <img v-if="photoThumbs[photo.id]" :src="photoThumbs[photo.id]" :alt="photo.fileName" />
-          <div v-else class="thumb-placeholder">
-            <AppIcon name="gallery" />
+    <section v-else-if="photos.length">
+      <div class="photo-grid">
+        <article v-for="photo in paginatedPhotos" :key="photo.id" class="photo-card">
+          <div class="photo-thumb">
+            <img v-if="photoThumbs[photo.id]" :src="photoThumbs[photo.id]" :alt="photo.fileName" />
+            <div v-else class="thumb-placeholder">
+              <AppIcon name="gallery" />
+            </div>
           </div>
+          <div class="photo-card-info">
+            <h3>{{ photo.fileName }}</h3>
+            <p>{{ formatSize(photo.fileSize) }} · {{ formatDate(photo.backedUpAt) }}</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="pagination" v-if="totalPages > 1">
+        <button class="pagination-button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">ก่อนหน้า</button>
+        <div class="pagination-pages">
+          <button
+            v-for="page in totalPages"
+            :key="page"
+            class="pagination-page"
+            :class="{ active: currentPage === page }"
+            @click="goToPage(page)"
+          >
+            {{ page }}
+          </button>
         </div>
-        <div class="photo-card-info">
-          <h3>{{ photo.fileName }}</h3>
-          <p>{{ formatSize(photo.fileSize) }} · {{ formatDate(photo.backedUpAt) }}</p>
-        </div>
-      </article>
+        <button class="pagination-button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">ถัดไป</button>
+      </div>
+      <p class="pagination-info">แสดง {{ paginatedPhotos.length }} จาก {{ photos.length }} รูป (หน้า {{ currentPage }} / {{ totalPages }})</p>
     </section>
 
     <section v-else class="empty-state">
@@ -173,12 +215,22 @@ onMounted(async () => {
   border-radius: 16px;
 }
 
+.tag-cloud-wrapper {
+  margin-top: 18px;
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 12px;
+  border: 1px solid #e3e9e5;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbfa 100%);
+}
+
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 18px;
 }
 
 .tag-cloud-item {
@@ -245,6 +297,19 @@ onMounted(async () => {
   color: #7b8880;
 }
 
+.tag-cloud-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tag-cloud-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tag-cloud-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(54, 121, 89, 0.4);
+  border-radius: 999px;
+}
+
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -307,5 +372,59 @@ onMounted(async () => {
 
 .empty-state h2 {
   margin-bottom: 8px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.pagination-button {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #d7e3dc;
+  background: #fff;
+  color: #2f6b4a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pagination-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pagination-page {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #4f5d57;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pagination-page.active {
+  background: #367959;
+  color: #fff;
+}
+
+.pagination-info {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #7b8880;
 }
 </style>

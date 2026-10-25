@@ -10,6 +10,10 @@ export function AnalyzePhotos(arg1) {
   return window['go']['main']['App']['AnalyzePhotos'](arg1);
 }
 
+export function AnalyzeUnanalyzedPhotos() {
+  return window['go']['main']['App']['AnalyzeUnanalyzedPhotos']();
+}
+
 export function BackupPhoto(arg1, arg2) {
   return window['go']['main']['App']['BackupPhoto'](arg1, arg2);
 }
