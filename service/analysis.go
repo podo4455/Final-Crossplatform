@@ -65,14 +65,10 @@ func (s *AnalysisService) AnalyzePhoto(ctx context.Context, photoID uint) ([]dat
 		return nil, errors.New("ไม่พบตำแหน่งไฟล์รูปในฐานข้อมูล")
 	}
 
-	// ล้าง Tag เก่าทิ้งก่อน เพื่อให้ใช้ผลจากการวิเคราะห์ครั้งล่าสุดแทน
-	if err := database.ClearPhotoTags(s.db, photoID); err != nil {
-		return nil, err
-	}
-
-	// เรียก analyzer เพื่อดึง Label จากรูป
+	// เรียก analyzer เพื่อดึง Label จากรูป (ยังไม่ลบ Tag เก่า จนกว่าจะได้ผลสำเร็จ)
 	labels, err := s.analyzer.DetectLabels(ctx, photo.DestinationPath)
 	if err != nil {
+		// API ล้มเหลว — รักษา Tag เดิมไว้ ไม่ลบ
 		return nil, err
 	}
 
@@ -106,11 +102,16 @@ func (s *AnalysisService) AnalyzePhoto(ctx context.Context, photoID uint) ([]dat
 	}
 
 	if len(tagNames) == 0 {
-		// ถ้าไม่มี tag ผ่านเกณฑ์ ให้คืน empty slice โดยไม่ error
+		// ไม่มี tag ผ่านเกณฑ์ — รักษา Tag เดิมไว้ คืน empty slice โดยไม่ error
 		return []database.Tag{}, nil
 	}
 
-	// บันทึก tag ผ่าน repository ที่มีอยู่แล้ว
+	// ล้าง Tag เก่าทิ้ง เฉพาะเมื่อได้ Tag ใหม่มาแทนแล้ว
+	if err := database.ClearPhotoTags(s.db, photoID); err != nil {
+		return nil, err
+	}
+
+	// บันทึก tag ใหม่ผ่าน repository ที่มีอยู่แล้ว
 	tags, err := database.SetPhotoTags(s.db, photoID, tagNames)
 	if err != nil {
 		return nil, err

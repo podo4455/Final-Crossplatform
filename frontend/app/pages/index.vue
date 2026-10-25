@@ -23,11 +23,26 @@ async function checkConnection() {
       </div>
       <PhotoIllustration />
     </section>
-    <div class="section-heading"><h2>พื้นที่สำหรับรูปภาพของคุณ</h2><span>แนวทางฟีเจอร์ที่ทีมจะพัฒนาร่วมกัน</span></div>
+    <div class="section-heading"><h2>พื้นที่สำหรับรูปภาพของคุณ</h2><span>เลือกฟังก์ชันที่ต้องการใช้งาน</span></div>
     <section class="roadmap" aria-label="ฟีเจอร์ของโปรเจกต์">
-      <article class="feature-card"><div class="feature-icon"><AppIcon name="folder" /></div><h2>สำรองรูปภาพ</h2><p>เลือกต้นทางและปลายทาง<br>เพื่อจัดเก็บรูปในคอมพิวเตอร์</p><small>คัดลอกรวมโฟลเดอร์ย่อย · เก็บต้นฉบับไว้</small></article>
-      <article class="feature-card"><div class="feature-icon"><AppIcon name="gallery" /></div><h2>คลังรูปภาพ</h2><p>ดูรูปที่สำรองไว้ในที่เดียว<br>พร้อมข้อมูลและประวัติการจัดเก็บ</p><small>วางแผนพัฒนา</small></article>
-      <article class="feature-card"><div class="feature-icon"><AppIcon name="sparkles" /></div><h2>ค้นหาด้วย Tag</h2><p>ค้นหาความทรงจำจากคำที่เกี่ยวข้อง<br>ด้วย Tag ที่ได้จากการวิเคราะห์ภาพ</p><small>วางแผนพัฒนา</small></article>
+      <NuxtLink class="feature-card" to="/backup">
+        <div class="feature-icon"><AppIcon name="folder" /></div>
+        <h2>สำรองรูปภาพ</h2>
+        <p>เลือกต้นทางและปลายทาง<br>เพื่อจัดเก็บรูปในคอมพิวเตอร์</p>
+        <span class="feature-link">ไปหน้าสำรองรูปภาพ <AppIcon name="arrow" /></span>
+      </NuxtLink>
+      <NuxtLink class="feature-card" to="/gallery">
+        <div class="feature-icon"><AppIcon name="gallery" /></div>
+        <h2>คลังรูปภาพ</h2>
+        <p>ดูรูปที่สำรองไว้ในที่เดียว<br>พร้อมข้อมูลและประวัติการจัดเก็บ</p>
+        <span class="feature-link">เปิดคลังรูปภาพ <AppIcon name="arrow" /></span>
+      </NuxtLink>
+      <NuxtLink class="feature-card" to="/tags">
+        <div class="feature-icon"><AppIcon name="sparkles" /></div>
+        <h2>ค้นหาด้วย Tag</h2>
+        <p>ค้นหาความทรงจำจากคำที่เกี่ยวข้อง<br>ด้วย Tag ที่ได้จากการวิเคราะห์ภาพ</p>
+        <span class="feature-link">ค้นหารูปภาพ <AppIcon name="arrow" /></span>
+      </NuxtLink>
     </section>
     <details class="connection">
       <summary>เครื่องมือสำหรับทีม · ทดสอบการเชื่อมต่อ Nuxt กับ Go</summary>

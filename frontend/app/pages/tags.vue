@@ -61,6 +61,16 @@ async function loadThumb(photoId: number) {
   }
 }
 
+async function loadCurrentPageThumbs() {
+  const current = paginatedPhotos.value
+  const needLoad = current.filter((p) => !photoThumbs.value[p.id] && !loadingThumbs.value[p.id])
+  await Promise.all(needLoad.map((p) => loadThumb(p.id)))
+}
+
+watch(paginatedPhotos, () => {
+  loadCurrentPageThumbs()
+})
+
 async function searchByTag(tagName: string) {
   if (loading.value) return
 
@@ -71,11 +81,11 @@ async function searchByTag(tagName: string) {
 
   try {
     photos.value = await SearchPhotosByTag(tagName)
-    await Promise.all(photos.value.map((photo) => loadThumb(photo.id)))
   } catch (cause) {
     error.value = `ค้นหาด้วย Tag ไม่สำเร็จ: ${String(cause)}`
   } finally {
     loading.value = false
+    loadCurrentPageThumbs()
   }
 }
 
@@ -87,11 +97,11 @@ async function showAll() {
 
   try {
     photos.value = await GetPhotos()
-    await Promise.all(photos.value.map((photo) => loadThumb(photo.id)))
   } catch (cause) {
     error.value = `โหลดรูปทั้งหมดไม่สำเร็จ: ${String(cause)}`
   } finally {
     loading.value = false
+    loadCurrentPageThumbs()
   }
 }
 

@@ -26,6 +26,18 @@ export function BackupSelectedPhotos(arg1, arg2) {
   return window['go']['main']['App']['BackupSelectedPhotos'](arg1, arg2);
 }
 
+export function CleanupMissingPhotos() {
+  return window['go']['main']['App']['CleanupMissingPhotos']();
+}
+
+export function DeletePhoto(arg1) {
+  return window['go']['main']['App']['DeletePhoto'](arg1);
+}
+
+export function GetAllPhotoTags() {
+  return window['go']['main']['App']['GetAllPhotoTags']();
+}
+
 export function GetPhotoDataURL(arg1) {
   return window['go']['main']['App']['GetPhotoDataURL'](arg1);
 }

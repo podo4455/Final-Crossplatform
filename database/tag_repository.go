@@ -80,6 +80,37 @@ func ListPhotoTags(db *gorm.DB, photoID uint) ([]Tag, error) {
 	return tags, err
 }
 
+type PhotoTagItem struct {
+	PhotoID uint   `json:"photoId"`
+	ID      uint   `json:"id"`
+	Name    string `json:"name"`
+}
+
+// GetAllPhotoTags คืน Tag ของทุกรูปในฐานข้อมูลเป็น map[photoID][]Tag
+// ช่วยลดจำนวน query จาก N ครั้งเหลือครั้งเดียว
+func GetAllPhotoTags(db *gorm.DB) (map[uint][]Tag, error) {
+	var rows []PhotoTagItem
+
+	err := db.Table("photo_tags").
+		Select("photo_tags.photo_id, tags.id, tags.name").
+		Joins("JOIN tags ON tags.id = photo_tags.tag_id").
+		Order("tags.name ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uint][]Tag)
+	for _, r := range rows {
+		result[r.PhotoID] = append(result[r.PhotoID], Tag{
+			ID:   r.ID,
+			Name: r.Name,
+		})
+	}
+
+	return result, nil
+}
+
 // SearchPhotosByTag ค้นหารูปจาก Tag หนึ่งคำ
 func SearchPhotosByTag(db *gorm.DB, tagName string) ([]Photo, error) {
 	name := normalizeTagName(tagName)

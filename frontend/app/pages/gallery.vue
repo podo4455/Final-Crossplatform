@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AnalyzePhoto, AnalyzePhotos, AnalyzeUnanalyzedPhotos, GetPhotoDataURL, GetPhotoTags, GetPhotos } from '../../wailsjs/go/main/App'
+import { AnalyzePhoto, AnalyzePhotos, AnalyzeUnanalyzedPhotos, CleanupMissingPhotos, DeletePhoto, GetAllPhotoTags, GetPhotoDataURL, GetPhotoTags, GetPhotos } from '../../wailsjs/go/main/App'
 import type { database } from '../../wailsjs/go/models'
 
 const photos = ref<database.Photo[]>([])
@@ -8,6 +8,7 @@ const error = ref('')
 const analyzing = ref<Record<number, boolean>>({})
 const analyzingAll = ref(false)
 const analyzingNew = ref(false)
+const cleaningUp = ref(false)
 const photoTags = ref<Record<number, database.Tag[]>>({})
 const photoThumbs = ref<Record<number, string>>({})
 const loadingThumbs = ref<Record<number, boolean>>({})
@@ -15,7 +16,7 @@ const loadingThumbs = ref<Record<number, boolean>>({})
 const activeTab = ref<'all' | 'pending' | 'done'>('all')
 
 const currentPage = ref(1)
-const itemsPerPage = 36
+const itemsPerPage = 12
 
 const filteredPhotos = computed(() => {
   if (activeTab.value === 'pending') {
@@ -74,19 +75,31 @@ async function loadThumb(photoId: number) {
   }
 }
 
+async function loadCurrentPageThumbs() {
+  const current = paginatedPhotos.value
+  const needLoad = current.filter((p) => !photoThumbs.value[p.id] && !loadingThumbs.value[p.id])
+  await Promise.all(needLoad.map((p) => loadThumb(p.id)))
+}
+
+watch(paginatedPhotos, () => {
+  loadCurrentPageThumbs()
+})
+
 async function loadPhotos() {
   loading.value = true
   error.value = ''
   try {
-    photos.value = await GetPhotos()
-    await Promise.all([
-      ...photos.value.map((photo) => loadTags(photo.id)),
-      ...photos.value.map((photo) => loadThumb(photo.id)),
+    const [fetchedPhotos, fetchedTags] = await Promise.all([
+      GetPhotos(),
+      GetAllPhotoTags().catch(() => ({})),
     ])
+    photos.value = fetchedPhotos || []
+    photoTags.value = fetchedTags || {}
   } catch (cause) {
     error.value = `อ่านคลังรูปไม่สำเร็จ: ${String(cause)}`
   } finally {
     loading.value = false
+    loadCurrentPageThumbs()
   }
 }
 
@@ -148,6 +161,36 @@ async function analyzeNewOnly() {
   }
 }
 
+async function cleanupMissing() {
+  if (cleaningUp.value) return
+  cleaningUp.value = true
+  try {
+    const removed = await CleanupMissingPhotos()
+    if (removed === 0) {
+      alert('ไม่พบรูปที่หายไป — ข้อมูลตรงกับไฟล์จริงแล้ว')
+    } else {
+      alert(`ลบข้อมูลรูปที่ไฟล์ไม่อยู่แล้ว ${removed} รายการ`)
+      await loadPhotos()
+    }
+  } catch (cause) {
+    alert(`ทำความสะอาดข้อมูลไม่สำเร็จ: ${String(cause)}`)
+  } finally {
+    cleaningUp.value = false
+  }
+}
+
+async function deleteSinglePhoto(photo: database.Photo) {
+  if (!confirm(`ต้องการลบข้อมูลรูป "${photo.fileName}" ออกจากระบบหรือไม่?`)) return
+  try {
+    await DeletePhoto(photo.id)
+    photos.value = photos.value.filter((p) => p.id !== photo.id)
+    delete photoTags.value[photo.id]
+    delete photoThumbs.value[photo.id]
+  } catch (cause) {
+    alert(`ลบข้อมูลรูปไม่สำเร็จ: ${String(cause)}`)
+  }
+}
+
 function formatDate(value: unknown) {
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return '-'
@@ -171,33 +214,80 @@ onMounted(loadPhotos)
 
     <div class="section-heading">
       <h2>{{ photos.length }} รูปในคลัง</h2>
+      <div class="header-actions">
+        <button class="secondary-button" :disabled="analyzingNew || analyzingAll || loading || photos.length === 0" @click="analyzeNewOnly">
+          {{ analyzingNew ? 'กำลังวิเคราะห์รูปใหม่…' : 'วิเคราะห์เฉพาะรูปที่ยังไม่มี Tag' }}
+        </button>
+        <button class="primary-button" :disabled="analyzingAll || analyzingNew || loading || photos.length === 0" @click="analyzeAll">
+          {{ analyzingAll ? 'กำลังวิเคราะห์ทั้งหมด…' : 'วิเคราะห์รูปทั้งหมด' }}
+        </button>
+        <button class="secondary-button" :disabled="loading || analyzingAll || analyzingNew || cleaningUp" @click="loadPhotos">
+          {{ loading ? 'กำลังโหลด…' : 'รีเฟรชรายการ' }}
+        </button>
+        <button class="secondary-button cleanup-button" :disabled="loading || analyzingAll || analyzingNew || cleaningUp || photos.length === 0" @click="cleanupMissing">
+          {{ cleaningUp ? 'กำลังตรวจสอบ…' : 'ลบรูปที่หายไป' }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="photos.length" class="tabs-bar">
+      <div class="tabs">
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'all' }"
+          @click="activeTab = 'all'"
+        >
+          ทั้งหมด ({{ photos.length }})
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'pending' }"
+          @click="activeTab = 'pending'"
+        >
+          ยังไม่มี Tag ({{ pendingCount }})
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'done' }"
+          @click="activeTab = 'done'"
+        >
+          วิเคราะห์แล้ว ({{ doneCount }})
+        </button>
+      </div>
     </div>
 
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-else-if="loading" class="subtitle" role="status">กำลังอ่านข้อมูลจากฐานข้อมูล…</p>
 
-    <section v-else-if="photos.length">
-      <div class="photo-gallery-grid">
-        <article v-for="photo in paginatedPhotos" :key="photo.id" class="gallery-card" :title="photo.fileName">
-          <div class="gallery-thumb">
+    <section v-else-if="filteredPhotos.length">
+      <div class="photo-list">
+        <article v-for="photo in paginatedPhotos" :key="photo.id" class="photo-row">
+          <div class="photo-thumb">
             <img v-if="photoThumbs[photo.id]" :src="photoThumbs[photo.id]" :alt="photo.fileName" />
             <div v-else class="thumb-placeholder"><AppIcon name="gallery" /></div>
           </div>
+          <div class="photo-info">
+            <h2>{{ photo.fileName }}</h2>
+            <p class="photo-path">{{ photo.destinationPath }}</p>
+            <small>{{ formatSize(photo.fileSize) }} · สำรองเมื่อ {{ formatDate(photo.backedUpAt) }}</small>
+            <div class="tag-section">
+              <p class="tag-label">Tag</p>
+              <div v-if="photoTags[photo.id]?.length" class="tag-list">
+                <span v-for="tag in photoTags[photo.id]" :key="tag.id" class="tag-chip">{{ tag.name }}</span>
+              </div>
+              <p v-else class="tag-empty">ยังไม่มี Tag</p>
+            </div>
+          </div>
+          <div class="photo-actions">
+            <button class="analyze-button" :disabled="analyzing[photo.id] || analyzingAll" @click="analyzePhoto(photo)">
+              {{ analyzing[photo.id] ? 'กำลังวิเคราะห์…' : 'วิเคราะห์รูป' }}
+            </button>
+            <button class="delete-icon-button" title="ลบข้อมูลรูปนี้ออกจากฐานข้อมูล" @click="deleteSinglePhoto(photo)">
+              ลบ
+            </button>
+            <span class="photo-status">{{ photo.backupStatus }}</span>
+          </div>
         </article>
-      </div>
-
-      <div class="gallery-toolbar">
-        <div class="header-actions">
-          <button class="secondary-button" :disabled="analyzingNew || analyzingAll || loading || photos.length === 0" @click="analyzeNewOnly">
-            {{ analyzingNew ? 'กำลังวิเคราะห์รูปใหม่…' : 'วิเคราะห์เฉพาะรูปที่ยังไม่มี Tag' }}
-          </button>
-          <button class="primary-button" :disabled="analyzingAll || analyzingNew || loading || photos.length === 0" @click="analyzeAll">
-            {{ analyzingAll ? 'กำลังวิเคราะห์ทั้งหมด…' : 'วิเคราะห์รูปทั้งหมด' }}
-          </button>
-          <button class="secondary-button" :disabled="loading || analyzingAll || analyzingNew" @click="loadPhotos">
-            {{ loading ? 'กำลังโหลด…' : 'รีเฟรชรายการ' }}
-          </button>
-        </div>
       </div>
 
       <div class="pagination" v-if="totalPages > 1">
@@ -215,7 +305,13 @@ onMounted(loadPhotos)
         </div>
         <button class="pagination-button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">ถัดไป</button>
       </div>
-      <p class="pagination-info">แสดง {{ paginatedPhotos.length }} จาก {{ photos.length }} รูป (หน้า {{ currentPage }} / {{ totalPages }})</p>
+      <p class="pagination-info">แสดง {{ paginatedPhotos.length }} จาก {{ filteredPhotos.length }} รูป (หน้า {{ currentPage }} / {{ totalPages }})</p>
+    </section>
+
+    <section v-else-if="photos.length" class="connection">
+      <h2>ไม่พบรูปในหมวดหมู่นี้</h2>
+      <p class="subtitle">ลองเลือกแถบ "ทั้งหมด" เพื่อดูรูปภาพที่มีอยู่</p>
+      <button class="secondary-button" @click="activeTab = 'all'">ดูรูปทั้งหมด</button>
     </section>
 
     <section v-else class="connection">
@@ -248,6 +344,59 @@ onMounted(loadPhotos)
 .primary-button:disabled,
 .secondary-button:disabled { opacity: 0.6; cursor: not-allowed; }
 .photo-status { padding: 6px 10px; border-radius: 20px; background: #eaf3ee; color: #367959; font-size: 11px; font-weight: 600; }
+.delete-icon-button {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #ebd0d0;
+  background: #fff5f5;
+  color: #b54747;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.delete-icon-button:hover {
+  background: #fde8e8;
+  border-color: #e5b3b3;
+}
+.cleanup-button {
+  border-color: #edd5d5;
+  color: #a43a3a;
+}
+.cleanup-button:hover:not(:disabled) {
+  background: #fdf2f2;
+}
+.tabs-bar {
+  margin-bottom: 20px;
+}
+.tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  background: #eef3f0;
+  border-radius: 12px;
+}
+.tab-btn {
+  padding: 7px 16px;
+  border: none;
+  background: transparent;
+  color: #5c6c64;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.tab-btn.active {
+  background: #fff;
+  color: #2f6b4a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+.photo-path {
+  font-family: monospace;
+  font-size: 11px;
+  color: #7b8880;
+}
 .pagination {
   display: flex;
   align-items: center;

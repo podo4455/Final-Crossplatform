@@ -68,6 +68,30 @@ func (a *App) GetPhotos() ([]database.Photo, error) {
 	return database.ListPhotos(a.db)
 }
 
+// DeletePhoto ลบรูปหนึ่งรูปออกจากฐานข้อมูล (รวมถึง Tag ที่เชื่อมอยู่)
+func (a *App) DeletePhoto(photoID uint) error {
+	if a.db == nil {
+		return fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.DeletePhoto(a.db, photoID)
+}
+
+// CleanupMissingPhotos สแกนฐานข้อมูลแล้วลบ record ที่ไฟล์จริงไม่อยู่แล้ว
+// คืนจำนวน record ที่ถูกลบ
+func (a *App) CleanupMissingPhotos() (int, error) {
+	if a.db == nil {
+		return 0, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	removed, err := database.CleanupMissingPhotos(a.db)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(removed), nil
+}
+
 // SetPhotoTags บันทึก Tag ที่ได้จากระบบวิเคราะห์ภาพ
 func (a *App) SetPhotoTags(photoID uint, tagNames []string) ([]database.Tag, error) {
 	if a.db == nil {
@@ -84,6 +108,15 @@ func (a *App) GetPhotoTags(photoID uint) ([]database.Tag, error) {
 	}
 
 	return database.ListPhotoTags(a.db, photoID)
+}
+
+// GetAllPhotoTags คืน Tag ทั้งหมดจัดกลุ่มตาม PhotoID
+func (a *App) GetAllPhotoTags() (map[uint][]database.Tag, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.GetAllPhotoTags(a.db)
 }
 
 // SearchPhotosByTag ค้นหารูปที่มี Tag ตรงกับคำค้นหา
@@ -234,6 +267,7 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	loadDotEnv()
 
 	db, err := database.Open()
 	if err != nil {

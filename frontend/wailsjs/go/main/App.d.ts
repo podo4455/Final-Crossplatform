@@ -15,6 +15,12 @@ export function BackupPhotos(arg1:string,arg2:string):Promise<service.Result>;
 
 export function BackupSelectedPhotos(arg1:Array<string>,arg2:string):Promise<service.Result>;
 
+export function CleanupMissingPhotos():Promise<number>;
+
+export function DeletePhoto(arg1:number):Promise<void>;
+
+export function GetAllPhotoTags():Promise<Record<number, Array<database.Tag>>>;
+
 export function GetPhotoDataURL(arg1:number):Promise<string>;
 
 export function GetPhotoTags(arg1:number):Promise<Array<database.Tag>>;
