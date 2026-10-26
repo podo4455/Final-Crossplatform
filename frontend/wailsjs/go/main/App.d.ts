@@ -17,7 +17,7 @@ export function BackupPhotos(arg1:string,arg2:string):Promise<service.Result>;
 
 export function BackupSelectedPhotos(arg1:Array<string>,arg2:string):Promise<service.Result>;
 
-export function CleanupMissingPhotos():Promise<number>;
+export function CleanupMissingPhotos():Promise<database.CleanupResult>;
 
 export function DeletePhoto(arg1:number):Promise<void>;
 
@@ -38,6 +38,8 @@ export function RemovePhotoTag(arg1:number,arg2:number):Promise<void>;
 export function SearchPhotosByName(arg1:string):Promise<Array<database.Photo>>;
 
 export function SearchPhotosByTag(arg1:string):Promise<Array<database.Photo>>;
+
+export function SearchPhotosByTags(arg1:Array<string>,arg2:boolean):Promise<Array<database.Photo>>;
 
 export function SelectDestination():Promise<string>;
 

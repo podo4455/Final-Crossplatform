@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { GetPhotoDataURL, GetPhotos, GetTagCloud, SearchPhotosByTag } from '../../wailsjs/go/main/App'
+import { GetPhotoDataURL, GetPhotos, GetTagCloud, SearchPhotosByTags } from '../../wailsjs/go/main/App'
 import type { database } from '../../wailsjs/go/models'
 
 const photos = ref<database.Photo[]>([])
 const tagCloud = ref<database.TagCloudItem[]>([])
-const activeTag = ref('')
+const selectedTags = ref<string[]>([])
+const matchAll = ref(false)
 const loading = ref(false)
 const loadingTagCloud = ref(true)
 const error = ref('')
 const photoThumbs = ref<Record<number, string>>({})
 const loadingThumbs = ref<Record<number, boolean>>({})
+
+// ใช้กันผลลัพธ์ของคำขอเก่ามาทับคำขอล่าสุด เมื่อผู้ใช้กด Tag เร็ว ๆ
+let searchId = 0
 
 const currentPage = ref(1)
 const itemsPerPage = 12
@@ -71,38 +75,51 @@ watch(paginatedPhotos, () => {
   loadCurrentPageThumbs()
 })
 
-async function searchByTag(tagName: string) {
-  if (loading.value) return
+async function toggleTag(tagName: string) {
+  const index = selectedTags.value.indexOf(tagName)
+  if (index >= 0) {
+    selectedTags.value.splice(index, 1)
+  } else {
+    selectedTags.value.push(tagName)
+  }
 
+  await searchPhotos()
+}
+
+async function searchPhotos() {
+  const id = ++searchId
   loading.value = true
   error.value = ''
-  activeTag.value = tagName
   photos.value = []
 
   try {
-    photos.value = await SearchPhotosByTag(tagName)
+    const result = selectedTags.value.length > 0
+      ? await SearchPhotosByTags([...selectedTags.value], matchAll.value)
+      : await GetPhotos()
+
+    if (id !== searchId) return
+    photos.value = result
   } catch (cause) {
+    if (id !== searchId) return
     error.value = `ค้นหาด้วย Tag ไม่สำเร็จ: ${String(cause)}`
   } finally {
-    loading.value = false
-    loadCurrentPageThumbs()
+    if (id === searchId) {
+      loading.value = false
+      loadCurrentPageThumbs()
+    }
   }
 }
 
-async function showAll() {
-  loading.value = true
-  error.value = ''
-  activeTag.value = ''
-  photos.value = []
+async function setMatchAll(value: boolean) {
+  if (matchAll.value === value) return
+  matchAll.value = value
+  await searchPhotos()
+}
 
-  try {
-    photos.value = await GetPhotos()
-  } catch (cause) {
-    error.value = `โหลดรูปทั้งหมดไม่สำเร็จ: ${String(cause)}`
-  } finally {
-    loading.value = false
-    loadCurrentPageThumbs()
-  }
+async function showAll() {
+  selectedTags.value = []
+  matchAll.value = false
+  await searchPhotos()
 }
 
 function getTagSize(count: number) {
@@ -138,8 +155,8 @@ onMounted(async () => {
     <section class="tag-cloud-section">
       <div class="section-heading">
         <h2>Tag Cloud</h2>
-        <button v-if="activeTag || photos.length > 0" class="secondary-button" @click="showAll">
-          ดูรูปทั้งหมด
+        <button v-if="selectedTags.length > 0" class="secondary-button" @click="showAll">
+          ล้างการเลือก
         </button>
       </div>
 
@@ -151,8 +168,8 @@ onMounted(async () => {
             v-for="tag in tagCloud"
             :key="tag.id"
             class="tag-cloud-item"
-            :class="[getTagSize(tag.photoCount), { active: activeTag === tag.name }]"
-            @click="searchByTag(tag.name)"
+            :class="[getTagSize(tag.photoCount), { active: selectedTags.includes(tag.name) }]"
+            @click="toggleTag(tag.name)"
           >
             {{ tag.name }}
             <span class="tag-count">{{ tag.photoCount }}</span>
@@ -161,12 +178,42 @@ onMounted(async () => {
       </div>
 
       <p v-else class="tag-empty">ยังไม่มี Tag ในระบบ</p>
-      <p class="hint">กด Tag ใดก็ได้เพื่อค้นหารูปที่เกี่ยวข้อง</p>
+      <p class="hint">กด Tag เพื่อเลือกได้หลายคำ — เลือกแล้วระบบจะกรองรูปให้อัตโนมัติ</p>
+
+      <div v-if="selectedTags.length > 0" class="selected-bar">
+        <span class="selected-label">Tag ที่เลือก:</span>
+        <button
+          v-for="tag in selectedTags"
+          :key="tag"
+          class="selected-chip"
+          :title="`เอา Tag ${tag} ออก`"
+          @click="toggleTag(tag)"
+        >
+          {{ tag }} <span aria-hidden="true">×</span>
+        </button>
+
+        <div v-if="selectedTags.length > 1" class="match-mode" role="group" aria-label="เงื่อนไขการค้นหา">
+          <button
+            class="match-mode-button"
+            :class="{ active: !matchAll }"
+            @click="setMatchAll(false)"
+          >
+            มี Tag ใดก็ได้
+          </button>
+          <button
+            class="match-mode-button"
+            :class="{ active: matchAll }"
+            @click="setMatchAll(true)"
+          >
+            ต้องมีทุก Tag
+          </button>
+        </div>
+      </div>
     </section>
 
     <div class="section-heading">
       <h2>
-        {{ activeTag ? `ผลการค้นหา Tag: "${activeTag}"` : 'รูปทั้งหมดในคลัง' }}
+        {{ selectedTags.length > 0 ? `ผลการค้นหา ${selectedTags.length} Tag` : 'รูปทั้งหมดในคลัง' }}
         <span class="count">({{ photos.length }} รูป)</span>
       </h2>
     </div>
@@ -209,8 +256,10 @@ onMounted(async () => {
     </section>
 
     <section v-else class="empty-state">
-      <h2>ไม่พบรูปที่มี Tag นี้</h2>
-      <p class="subtitle">ลองเลือก Tag อื่น หรือกด "ดูรูปทั้งหมด"</p>
+      <h2>ไม่พบรูปที่ตรงกับ Tag ที่เลือก</h2>
+      <p class="subtitle">
+        {{ matchAll && selectedTags.length > 1 ? 'ลองเปลี่ยนเป็น "มี Tag ใดก็ได้" หรือลด Tag ที่เลือก' : 'ลองเลือก Tag อื่น หรือล้างการเลือก' }}
+      </p>
       <button class="primary-button" @click="showAll">ดูรูปทั้งหมด</button>
     </section>
   </main>
@@ -294,6 +343,68 @@ onMounted(async () => {
   margin-top: 14px;
   font-size: 12px;
   color: #7b8880;
+}
+
+.selected-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed #dde6e0;
+}
+
+.selected-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4f5d57;
+}
+
+.selected-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid #367959;
+  background: #367959;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.selected-chip:hover {
+  background: #2f6b4a;
+}
+
+.match-mode {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px;
+  border-radius: 10px;
+  background: #eef3f0;
+}
+
+.match-mode-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #5c6c64;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.match-mode-button.active {
+  background: #fff;
+  color: #2f6b4a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .tag-empty {

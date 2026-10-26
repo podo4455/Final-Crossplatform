@@ -198,11 +198,18 @@ async function cleanupMissing() {
   if (cleaningUp.value) return
   cleaningUp.value = true
   try {
-    const removed = await CleanupMissingPhotos()
-    if (removed === 0) {
+    const result = await CleanupMissingPhotos()
+    if (result.relinked === 0 && result.removed === 0) {
       alert('ไม่พบรูปที่หายไป — ข้อมูลตรงกับไฟล์จริงแล้ว')
     } else {
-      alert(`ลบข้อมูลรูปที่ไฟล์ไม่อยู่แล้ว ${removed} รายการ`)
+      const messages: string[] = []
+      if (result.relinked > 0) {
+        messages.push(`กู้คืนรูปที่ถูกเปลี่ยนชื่อ ${result.relinked} รูป`)
+      }
+      if (result.removed > 0) {
+        messages.push(`ลบข้อมูลรูปที่ไฟล์ไม่อยู่แล้ว ${result.removed} รายการ`)
+      }
+      alert(messages.join('\n'))
       await loadPhotos()
     }
   } catch (cause) {
@@ -283,8 +290,8 @@ onMounted(loadPhotos)
         <button class="secondary-button" :disabled="loading || analyzingAll || analyzingNew || cleaningUp" @click="loadPhotos">
           {{ loading ? 'กำลังโหลด…' : 'รีเฟรชรายการ' }}
         </button>
-        <button class="secondary-button cleanup-button" :disabled="loading || analyzingAll || analyzingNew || cleaningUp || photos.length === 0" @click="cleanupMissing">
-          {{ cleaningUp ? 'กำลังตรวจสอบ…' : 'ลบรูปที่หายไป' }}
+        <button class="secondary-button cleanup-button" :disabled="loading || analyzingAll || analyzingNew || cleaningUp || photos.length === 0" title="กู้คืนรูปที่ถูกเปลี่ยนชื่อในโฟลเดอร์เดิม หรือลบ record ที่ไฟล์หายจริง" @click="cleanupMissing">
+          {{ cleaningUp ? 'กำลังตรวจสอบ…' : 'ตรวจสอบไฟล์ที่หายไป' }}
         </button>
       </div>
     </div>

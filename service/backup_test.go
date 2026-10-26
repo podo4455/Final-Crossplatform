@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,6 +26,10 @@ func TestCopyAndRepeat(t *testing.T) {
 	result, err := CopyImages(context.Background(), src, dst, func(p Progress) { last = p })
 	if err != nil || result.Copied != 1 || last.Completed != 1 {
 		t.Fatalf("%+v %v %+v", result, err, last)
+	}
+	wantHash := sha256.Sum256([]byte("original bytes"))
+	if result.Files[0].Hash != hex.EncodeToString(wantHash[:]) {
+		t.Fatalf("hash ไม่ถูกต้อง: %q", result.Files[0].Hash)
 	}
 	for _, root := range []string{src, dst} {
 		data, err := os.ReadFile(filepath.Join(root, "เที่ยว", "PHOTO.JPG"))
@@ -113,7 +119,7 @@ func TestCancelledCopyRemovesPartialDestination(t *testing.T) {
 	defer out.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := copyFile(ctx, in, out, "a.jpg"); err == nil {
+	if _, _, err := copyFile(ctx, in, out, "a.jpg"); err == nil {
 		t.Fatal("expected cancellation")
 	}
 	if _, err := os.Stat(filepath.Join(dst, "a.jpg")); !os.IsNotExist(err) {

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +18,7 @@ type FileResult struct {
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
 	Size        int64  `json:"size"`
+	Hash        string `json:"hash"`
 	Status      string `json:"status"`
 	Error       string `json:"error"`
 	CopiedAt    string `json:"copiedAt"`
@@ -126,7 +129,7 @@ func CopyImages(ctx context.Context, source, destination string, notify func(Pro
 			return result, err
 		}
 		item := FileResult{Source: filepath.Join(source, name), Destination: filepath.Join(destination, name)}
-		item.Size, err = copyFile(ctx, src, dst, name)
+		item.Size, item.Hash, err = copyFile(ctx, src, dst, name)
 		switch {
 		case errors.Is(err, errDestinationExists):
 			item.Status = "skipped"
@@ -177,7 +180,7 @@ func CopySelectedImages(ctx context.Context, paths []string, destination string,
 			return result, err
 		}
 		item := FileResult{Source: path, Destination: filepath.Join(destination, filepath.Base(path))}
-		item.Size, err = copySelectedFile(ctx, path, dst)
+		item.Size, item.Hash, err = copySelectedFile(ctx, path, dst)
 		switch {
 		case errors.Is(err, errDestinationExists):
 			item.Status = "skipped"
@@ -199,20 +202,20 @@ func CopySelectedImages(ctx context.Context, paths []string, destination string,
 	return result, nil
 }
 
-func copySelectedFile(ctx context.Context, path string, dst *os.Root) (int64, error) {
+func copySelectedFile(ctx context.Context, path string, dst *os.Root) (int64, string, error) {
 	if !filepath.IsAbs(path) || !imageFile(path) {
-		return 0, errors.New("กรุณาเลือกไฟล์รูปภาพที่รองรับ")
+		return 0, "", errors.New("กรุณาเลือกไฟล์รูปภาพที่รองรับ")
 	}
 	info, err := os.Lstat(path)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	if !info.Mode().IsRegular() {
-		return 0, errors.New("ต้องเป็นไฟล์รูปภาพปกติ ไม่ใช่โฟลเดอร์หรือ symbolic link")
+		return 0, "", errors.New("ต้องเป็นไฟล์รูปภาพปกติ ไม่ใช่โฟลเดอร์หรือ symbolic link")
 	}
 	src, err := os.OpenRoot(filepath.Dir(path))
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	defer src.Close()
 	return copyFile(ctx, src, dst, filepath.Base(path))
@@ -225,31 +228,31 @@ func (r contextReader) Read(p []byte) (int, error) {
 	return r.reader.Read(p)
 }
 
-func copyFile(ctx context.Context, src, dst *os.Root, name string) (size int64, err error) {
+func copyFile(ctx context.Context, src, dst *os.Root, name string) (size int64, hash string, err error) {
 	in, err := src.Open(name)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	defer in.Close()
 	before, err := in.Stat()
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	if !before.Mode().IsRegular() {
-		return 0, errors.New("ไม่ใช่ไฟล์ปกติ")
+		return 0, "", errors.New("ไม่ใช่ไฟล์ปกติ")
 	}
 	if err = dst.MkdirAll(filepath.Dir(name), 0755); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	out, err := dst.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if errors.Is(err, fs.ErrExist) {
 		info, statErr := dst.Lstat(name)
 		if statErr == nil && info.Mode().IsRegular() {
-			return 0, errDestinationExists
+			return 0, "", errDestinationExists
 		}
 	}
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	// Only remove the newly created destination if copying fails. Never delete a source.
 	defer func() {
@@ -263,17 +266,21 @@ func copyFile(ctx context.Context, src, dst *os.Root, name string) (size int64, 
 			}
 		}
 	}()
-	size, err = io.Copy(out, contextReader{ctx, in})
+	// คำนวณ SHA-256 ระหว่างคัดลอก เพื่อใช้ตามหาไฟล์ที่ถูกเปลี่ยนชื่อภายหลัง
+	hasher := sha256.New()
+	size, err = io.Copy(out, contextReader{ctx: ctx, reader: io.TeeReader(in, hasher)})
 	if err != nil {
-		return size, err
+		return size, "", err
 	}
 	after, err := in.Stat()
 	if err != nil {
-		return size, err
+		return size, "", err
 	}
 	if size != before.Size() || after.Size() != before.Size() || !after.ModTime().Equal(before.ModTime()) {
-		return size, errors.New("ไฟล์ต้นทางเปลี่ยนระหว่างคัดลอก กรุณาลองใหม่")
+		return size, "", errors.New("ไฟล์ต้นทางเปลี่ยนระหว่างคัดลอก กรุณาลองใหม่")
 	}
-	err = out.Sync()
-	return size, err
+	if err = out.Sync(); err != nil {
+		return size, "", err
+	}
+	return size, hex.EncodeToString(hasher.Sum(nil)), nil
 }

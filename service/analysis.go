@@ -61,12 +61,14 @@ func (s *AnalysisService) AnalyzePhoto(ctx context.Context, photoID uint) ([]dat
 		return nil, err
 	}
 
-	if strings.TrimSpace(photo.DestinationPath) == "" {
-		return nil, errors.New("ไม่พบตำแหน่งไฟล์รูปในฐานข้อมูล")
+	// ถ้าไฟล์ถูกเปลี่ยนชื่อในโฟลเดอร์เดิม ให้เชื่อม path ใหม่ก่อนวิเคราะห์
+	path, err := database.ResolvePhotoPath(s.db, &photo)
+	if err != nil {
+		return nil, err
 	}
 
 	// เรียก analyzer เพื่อดึง Label จากรูป (ยังไม่ลบ Tag เก่า จนกว่าจะได้ผลสำเร็จ)
-	labels, err := s.analyzer.DetectLabels(ctx, photo.DestinationPath)
+	labels, err := s.analyzer.DetectLabels(ctx, path)
 	if err != nil {
 		// API ล้มเหลว — รักษา Tag เดิมไว้ ไม่ลบ
 		return nil, err

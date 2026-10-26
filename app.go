@@ -20,10 +20,10 @@ import (
 
 // App struct
 type App struct {
-	ctx       context.Context
-	backupMu  sync.Mutex
-	db        *gorm.DB
-	analysis  *service.AnalysisService
+	ctx      context.Context
+	backupMu sync.Mutex
+	db       *gorm.DB
+	analysis *service.AnalysisService
 }
 
 // saveCopiedPhotos บันทึกเฉพาะไฟล์ที่ Copy สำเร็จลงฐานข้อมูล
@@ -47,6 +47,7 @@ func (a *App) saveCopiedPhotos(result service.Result) error {
 			SourcePath:      file.Source,
 			DestinationPath: file.Destination,
 			FileSize:        file.Size,
+			FileHash:        file.Hash,
 			BackupStatus:    "copied",
 			BackedUpAt:      copiedAt,
 		}
@@ -65,6 +66,11 @@ func (a *App) GetPhotos() ([]database.Photo, error) {
 		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
 	}
 
+	// ถ้ามีรูปที่ถูกเปลี่ยนชื่อในโฟลเดอร์เดิม ให้เชื่อม path ใหม่ก่อนคืนรายการ
+	if _, err := database.RelinkMissingPhotos(a.db); err != nil {
+		runtime.LogError(a.ctx, "เชื่อมรูปที่ถูกเปลี่ยนชื่อไม่สำเร็จ: "+err.Error())
+	}
+
 	return database.ListPhotos(a.db)
 }
 
@@ -77,19 +83,15 @@ func (a *App) DeletePhoto(photoID uint) error {
 	return database.DeletePhoto(a.db, photoID)
 }
 
-// CleanupMissingPhotos สแกนฐานข้อมูลแล้วลบ record ที่ไฟล์จริงไม่อยู่แล้ว
-// คืนจำนวน record ที่ถูกลบ
-func (a *App) CleanupMissingPhotos() (int, error) {
+// CleanupMissingPhotos ตรวจไฟล์ที่หายไป
+// รูปที่ถูกเปลี่ยนชื่อในโฟลเดอร์เดิมจะถูกเชื่อมกลับให้อัตโนมัติ
+// คืนจำนวนรูปที่กู้คืนได้ และจำนวน record ที่ถูกลบ
+func (a *App) CleanupMissingPhotos() (database.CleanupResult, error) {
 	if a.db == nil {
-		return 0, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+		return database.CleanupResult{}, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
 	}
 
-	removed, err := database.CleanupMissingPhotos(a.db)
-	if err != nil {
-		return 0, err
-	}
-
-	return len(removed), nil
+	return database.CleanupMissingPhotos(a.db)
 }
 
 // SetPhotoTags บันทึก Tag ที่ได้จากระบบวิเคราะห์ภาพ
@@ -144,6 +146,16 @@ func (a *App) SearchPhotosByTag(tagName string) ([]database.Photo, error) {
 	}
 
 	return database.SearchPhotosByTag(a.db, tagName)
+}
+
+// SearchPhotosByTags ค้นหารูปจากหลาย Tag พร้อมกัน
+// matchAll = false → มี Tag ใดก็ได้, true → ต้องมีครบทุก Tag
+func (a *App) SearchPhotosByTags(tagNames []string, matchAll bool) ([]database.Photo, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.SearchPhotosByTags(a.db, tagNames, matchAll)
 }
 
 // GetTagCloud คืน Tag ทั้งหมดพร้อมจำนวนรูปที่เกี่ยวข้อง
@@ -246,16 +258,18 @@ func (a *App) GetPhotoDataURL(photoID uint) (string, error) {
 		return "", err
 	}
 
-	if photo.DestinationPath == "" {
-		return "", fmt.Errorf("ไม่พบตำแหน่งไฟล์รูป")
-	}
-
-	data, err := os.ReadFile(photo.DestinationPath)
+	// ResolvePhotoPath จะตามหาไฟล์ที่ถูกเปลี่ยนชื่อในโฟลเดอร์เดิมให้อัตโนมัติ
+	path, err := database.ResolvePhotoPath(a.db, &photo)
 	if err != nil {
-		return "", fmt.Errorf("อ่านไฟล์รูปไม่สำเร็�: %w", err)
+		return "", fmt.Errorf("อ่านไฟล์รูปไม่สำเร็จ: %w", err)
 	}
 
-	mimeType := mime.TypeByExtension(filepath.Ext(photo.DestinationPath))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("อ่านไฟล์รูปไม่สำเร็จ: %w", err)
+	}
+
+	mimeType := mime.TypeByExtension(filepath.Ext(path))
 	if mimeType == "" {
 		mimeType = "image/jpeg"
 	}

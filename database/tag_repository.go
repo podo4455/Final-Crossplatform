@@ -131,6 +131,46 @@ func SearchPhotosByTag(db *gorm.DB, tagName string) ([]Photo, error) {
 	return photos, err
 }
 
+// SearchPhotosByTags ค้นหารูปจากหลาย Tag พร้อมกัน
+// matchAll = false → รูปที่มี Tag ใดก็ได้จากรายการ (OR)
+// matchAll = true  → รูปที่ต้องมีครบทุก Tag ในรายการ (AND)
+func SearchPhotosByTags(db *gorm.DB, tagNames []string, matchAll bool) ([]Photo, error) {
+	names := make([]string, 0, len(tagNames))
+	seen := make(map[string]bool)
+
+	for _, rawName := range tagNames {
+		name := normalizeTagName(rawName)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+
+	// ไม่ได้เลือก Tag → คืนรูปทั้งหมด
+	if len(names) == 0 {
+		return ListPhotos(db)
+	}
+
+	query := db.Model(&Photo{}).
+		Joins("JOIN photo_tags ON photo_tags.photo_id = photos.id").
+		Joins("JOIN tags ON tags.id = photo_tags.tag_id").
+		Where("tags.name IN ?", names)
+
+	if matchAll {
+		query = query.Group("photos.id").Having("COUNT(DISTINCT tags.name) = ?", len(names))
+	} else {
+		query = query.Distinct()
+	}
+
+	var photos []Photo
+	if err := query.Order("photos.backed_up_at DESC").Find(&photos).Error; err != nil {
+		return nil, err
+	}
+
+	return photos, nil
+}
+
 // GetTagCloud คืน Tag ที่ถูกใช้ พร้อมจำนวนรูปของแต่ละ Tag
 func GetTagCloud(db *gorm.DB) ([]TagCloudItem, error) {
 	var items []TagCloudItem

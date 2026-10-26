@@ -1,11 +1,26 @@
 export namespace database {
 	
+	export class CleanupResult {
+	    relinked: number;
+	    removed: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CleanupResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.relinked = source["relinked"];
+	        this.removed = source["removed"];
+	    }
+	}
 	export class Photo {
 	    id: number;
 	    fileName: string;
 	    sourcePath: string;
 	    destinationPath: string;
 	    fileSize: number;
+	    fileHash: string;
 	    backupStatus: string;
 	    // Go type: time
 	    backedUpAt: any;
@@ -25,6 +40,7 @@ export namespace database {
 	        this.sourcePath = source["sourcePath"];
 	        this.destinationPath = source["destinationPath"];
 	        this.fileSize = source["fileSize"];
+	        this.fileHash = source["fileHash"];
 	        this.backupStatus = source["backupStatus"];
 	        this.backedUpAt = this.convertValues(source["backedUpAt"], null);
 	        this.createdAt = this.convertValues(source["createdAt"], null);
@@ -109,6 +125,7 @@ export namespace service {
 	    source: string;
 	    destination: string;
 	    size: number;
+	    hash: string;
 	    status: string;
 	    error: string;
 	    copiedAt: string;
@@ -122,6 +139,7 @@ export namespace service {
 	        this.source = source["source"];
 	        this.destination = source["destination"];
 	        this.size = source["size"];
+	        this.hash = source["hash"];
 	        this.status = source["status"];
 	        this.error = source["error"];
 	        this.copiedAt = source["copiedAt"];

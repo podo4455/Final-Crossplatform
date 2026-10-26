@@ -74,6 +74,10 @@ export function SearchPhotosByTag(arg1) {
   return window['go']['main']['App']['SearchPhotosByTag'](arg1);
 }
 
+export function SearchPhotosByTags(arg1, arg2) {
+  return window['go']['main']['App']['SearchPhotosByTags'](arg1, arg2);
+}
+
 export function SelectDestination() {
   return window['go']['main']['App']['SelectDestination']();
 }
