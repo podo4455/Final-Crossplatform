@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { AnalyzePhoto, AnalyzePhotos, AnalyzeUnanalyzedPhotos, CleanupMissingPhotos, DeletePhoto, GetAllPhotoTags, GetPhotoDataURL, GetPhotoTags, GetPhotos } from '../../wailsjs/go/main/App'
+import { AddPhotoTag, AnalyzePhoto, AnalyzePhotos, AnalyzeUnanalyzedPhotos, CleanupMissingPhotos, DeletePhoto, GetAllPhotoTags, GetPhotoDataURL, GetPhotoTags, GetPhotos, RemovePhotoTag, SearchPhotosByName } from '../../wailsjs/go/main/App'
 import type { database } from '../../wailsjs/go/models'
 
 const photos = ref<database.Photo[]>([])
 const loading = ref(true)
 const error = ref('')
+const searching = ref(false)
 const analyzing = ref<Record<number, boolean>>({})
 const analyzingAll = ref(false)
 const analyzingNew = ref(false)
@@ -12,6 +13,11 @@ const cleaningUp = ref(false)
 const photoTags = ref<Record<number, database.Tag[]>>({})
 const photoThumbs = ref<Record<number, string>>({})
 const loadingThumbs = ref<Record<number, boolean>>({})
+
+const addingTag = ref<Record<number, boolean>>({})
+const newTagName = ref<Record<number, string>>({})
+
+const searchKeyword = ref('')
 
 const activeTab = ref<'all' | 'pending' | 'done'>('all')
 
@@ -87,7 +93,9 @@ watch(paginatedPhotos, () => {
 
 async function loadPhotos() {
   loading.value = true
+  searching.value = false
   error.value = ''
+  searchKeyword.value = ''
   try {
     const [fetchedPhotos, fetchedTags] = await Promise.all([
       GetPhotos(),
@@ -101,6 +109,31 @@ async function loadPhotos() {
     loading.value = false
     loadCurrentPageThumbs()
   }
+}
+
+async function searchByName() {
+  const keyword = searchKeyword.value.trim()
+  loading.value = true
+  error.value = ''
+  searching.value = keyword !== ''
+  try {
+    const [fetchedPhotos, fetchedTags] = await Promise.all([
+      SearchPhotosByName(keyword),
+      GetAllPhotoTags().catch(() => ({})),
+    ])
+    photos.value = fetchedPhotos || []
+    photoTags.value = fetchedTags || {}
+  } catch (cause) {
+    error.value = `ค้นหาชื่อไฟล์ไม่สำเร็จ: ${String(cause)}`
+  } finally {
+    loading.value = false
+    loadCurrentPageThumbs()
+  }
+}
+
+function clearSearch() {
+  searchKeyword.value = ''
+  loadPhotos()
 }
 
 async function analyzePhoto(photo: database.Photo) {
@@ -191,6 +224,32 @@ async function deleteSinglePhoto(photo: database.Photo) {
   }
 }
 
+async function addTagToPhoto(photoId: number) {
+  const name = (newTagName.value[photoId] || '').trim()
+  if (!name) return
+  if (addingTag.value[photoId]) return
+
+  addingTag.value[photoId] = true
+  try {
+    const tags = await AddPhotoTag(photoId, name)
+    photoTags.value[photoId] = tags
+    newTagName.value[photoId] = ''
+  } catch (cause) {
+    alert(`เพิ่ม Tag ไม่สำเร็จ: ${String(cause)}`)
+  } finally {
+    addingTag.value[photoId] = false
+  }
+}
+
+async function removeTagFromPhoto(photoId: number, tagId: number) {
+  try {
+    await RemovePhotoTag(photoId, tagId)
+    photoTags.value[photoId] = (photoTags.value[photoId] || []).filter((tag) => tag.id !== tagId)
+  } catch (cause) {
+    alert(`ลบ Tag ไม่สำเร็จ: ${String(cause)}`)
+  }
+}
+
 function formatDate(value: unknown) {
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return '-'
@@ -213,7 +272,7 @@ onMounted(loadPhotos)
     <p class="subtitle">รายการรูปที่ระบบบันทึกไว้หลังสำรองสำเร็จ</p>
 
     <div class="section-heading">
-      <h2>{{ photos.length }} รูปในคลัง</h2>
+      <h2>{{ photos.length }} {{ searching ? 'ผลการค้นหา' : 'รูปในคลัง' }}</h2>
       <div class="header-actions">
         <button class="secondary-button" :disabled="analyzingNew || analyzingAll || loading || photos.length === 0" @click="analyzeNewOnly">
           {{ analyzingNew ? 'กำลังวิเคราะห์รูปใหม่…' : 'วิเคราะห์เฉพาะรูปที่ยังไม่มี Tag' }}
@@ -228,6 +287,17 @@ onMounted(loadPhotos)
           {{ cleaningUp ? 'กำลังตรวจสอบ…' : 'ลบรูปที่หายไป' }}
         </button>
       </div>
+    </div>
+
+    <div class="search-bar">
+      <input
+        class="search-input"
+        v-model="searchKeyword"
+        placeholder="ค้นหาจากชื่อไฟล์รูปภาพ..."
+        @keyup.enter="searchByName"
+      />
+      <button class="search-button" :disabled="loading" @click="searchByName">ค้นหา</button>
+      <button v-if="searching" class="secondary-button" @click="clearSearch">แสดงทั้งหมด</button>
     </div>
 
     <div v-if="photos.length" class="tabs-bar">
@@ -273,9 +343,23 @@ onMounted(loadPhotos)
             <div class="tag-section">
               <p class="tag-label">Tag</p>
               <div v-if="photoTags[photo.id]?.length" class="tag-list">
-                <span v-for="tag in photoTags[photo.id]" :key="tag.id" class="tag-chip">{{ tag.name }}</span>
+                <span v-for="tag in photoTags[photo.id]" :key="tag.id" class="tag-chip">
+                  {{ tag.name }}
+                  <button class="tag-remove" @click="removeTagFromPhoto(photo.id, tag.id)" title="ลบ Tag นี้">×</button>
+                </span>
               </div>
               <p v-else class="tag-empty">ยังไม่มี Tag</p>
+              <div class="tag-add-row">
+                <input
+                  class="tag-input"
+                  v-model="newTagName[photo.id]"
+                  placeholder="เพิ่ม Tag เอง..."
+                  @keyup.enter="addTagToPhoto(photo.id)"
+                />
+                <button class="tag-add-button" :disabled="addingTag[photo.id] || !(newTagName[photo.id] || '').trim()" @click="addTagToPhoto(photo.id)">
+                  {{ addingTag[photo.id] ? 'กำลังเพิ่ม...' : 'เพิ่ม' }}
+                </button>
+              </div>
             </div>
           </div>
           <div class="photo-actions">
@@ -335,8 +419,13 @@ onMounted(loadPhotos)
 .tag-section { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .tag-label { margin: 0; font-size: 12px; font-weight: 600; color: #4f5d57; }
 .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.tag-chip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; background: #f0f7f3; color: #367959; font-size: 11px; font-weight: 600; text-transform: capitalize; }
+.tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #f0f7f3; color: #367959; font-size: 11px; font-weight: 600; text-transform: capitalize; }
+.tag-remove { border: none; background: transparent; color: #5f9f7b; cursor: pointer; font-size: 12px; line-height: 1; }
 .tag-empty { margin: 0; font-size: 11px; color: #89968f; }
+.tag-add-row { display: flex; gap: 8px; }
+.tag-input { flex: 1; border-radius: 999px; border: 1px solid #d7e3dc; padding: 6px 12px; font-size: 12px; }
+.tag-add-button { border-radius: 999px; border: 1px solid #d7e3dc; background: #fff; padding: 6px 12px; font-size: 12px; color: #2f6b4a; cursor: pointer; }
+.tag-add-button:disabled { opacity: 0.5; cursor: not-allowed; }
 .photo-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .header-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .analyze-button { padding: 8px 14px; border-radius: 999px; border: 1px solid #d7e3dc; background: linear-gradient(180deg, #f7fbf9 0%, #eef6f1 100%); color: #2f6b4a; font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -366,6 +455,39 @@ onMounted(loadPhotos)
 .cleanup-button:hover:not(:disabled) {
   background: #fdf2f2;
 }
+
+.search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 24px;
+}
+
+.search-input {
+  flex: 1 1 280px;
+  border-radius: 999px;
+  border: 1px solid #d7e3dc;
+  padding: 9px 18px;
+  font-size: 13px;
+  background: #fff;
+}
+
+.search-button {
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid #d7e3dc;
+  background: linear-gradient(180deg, #f7fbf9 0%, #eef6f1 100%);
+  color: #2f6b4a;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.search-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .tabs-bar {
   margin-bottom: 20px;
 }

@@ -9,6 +9,7 @@ import (
 )
 
 // SavePhoto บันทึกข้อมูลของรูปที่สำรองสำเร็จลงตาราง photos
+// ถ้ามี destination_path ซ้ำอยู่แล้ว จะข้ามโดยไม่ error (กันซ้ำ)
 func SavePhoto(db *gorm.DB, photo *Photo) error {
 	if strings.TrimSpace(photo.FileName) == "" {
 		return errors.New("ต้องระบุชื่อไฟล์")
@@ -16,6 +17,16 @@ func SavePhoto(db *gorm.DB, photo *Photo) error {
 
 	if strings.TrimSpace(photo.DestinationPath) == "" {
 		return errors.New("ต้องระบุตำแหน่งปลายทาง")
+	}
+
+	var existing Photo
+	err := db.Where("destination_path = ?", photo.DestinationPath).First(&existing).Error
+	if err == nil {
+		// เคยบันทึกไฟล์นี้ไปแล้ว ไม่ต้องบันทึกซ้ำ
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
 
 	return db.Create(photo).Error
@@ -77,6 +88,24 @@ func ListPhotos(db *gorm.DB) ([]Photo, error) {
 	var photos []Photo
 
 	err := db.Order("backed_up_at DESC").Find(&photos).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return photos, nil
+}
+
+// SearchPhotosByName ค้นหารูปจากชื่อไฟล์
+func SearchPhotosByName(db *gorm.DB, keyword string) ([]Photo, error) {
+	keyword = strings.TrimSpace(keyword)
+	if keyword == "" {
+		return ListPhotos(db)
+	}
+
+	var photos []Photo
+	err := db.Where("LOWER(file_name) LIKE LOWER(?)", "%"+keyword+"%").
+		Order("backed_up_at DESC").
+		Find(&photos).Error
 	if err != nil {
 		return nil, err
 	}

@@ -110,6 +110,24 @@ func (a *App) GetPhotoTags(photoID uint) ([]database.Tag, error) {
 	return database.ListPhotoTags(a.db, photoID)
 }
 
+// AddPhotoTag เพิ่ม Tag ให้รูปด้วยตัวเอง
+func (a *App) AddPhotoTag(photoID uint, tagName string) ([]database.Tag, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.SetPhotoTags(a.db, photoID, []string{tagName})
+}
+
+// RemovePhotoTag ลบ Tag ออกจากรูป
+func (a *App) RemovePhotoTag(photoID uint, tagID uint) error {
+	if a.db == nil {
+		return fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.RemovePhotoTag(a.db, photoID, tagID)
+}
+
 // GetAllPhotoTags คืน Tag ทั้งหมดจัดกลุ่มตาม PhotoID
 func (a *App) GetAllPhotoTags() (map[uint][]database.Tag, error) {
 	if a.db == nil {
@@ -135,6 +153,15 @@ func (a *App) GetTagCloud() ([]database.TagCloudItem, error) {
 	}
 
 	return database.GetTagCloud(a.db)
+}
+
+// SearchPhotosByName ค้นหารูปจากชื่อไฟล์
+func (a *App) SearchPhotosByName(keyword string) ([]database.Photo, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("ฐานข้อมูลยังไม่พร้อม")
+	}
+
+	return database.SearchPhotosByName(a.db, keyword)
 }
 
 // AnalyzePhoto วิเคราะห์รูปภาพ 1 รูป และบันทึก Tag ลงฐานข้อมูล

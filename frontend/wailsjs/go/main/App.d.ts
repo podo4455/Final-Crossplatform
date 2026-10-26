@@ -3,6 +3,8 @@
 import {database} from '../models';
 import {service} from '../models';
 
+export function AddPhotoTag(arg1:number,arg2:string):Promise<Array<database.Tag>>;
+
 export function AnalyzePhoto(arg1:number):Promise<Array<database.Tag>>;
 
 export function AnalyzePhotos(arg1:Array<number>):Promise<Record<number, Array<database.Tag>>>;
@@ -30,6 +32,10 @@ export function GetPhotos():Promise<Array<database.Photo>>;
 export function GetTagCloud():Promise<Array<database.TagCloudItem>>;
 
 export function Greet(arg1:string):Promise<string>;
+
+export function RemovePhotoTag(arg1:number,arg2:number):Promise<void>;
+
+export function SearchPhotosByName(arg1:string):Promise<Array<database.Photo>>;
 
 export function SearchPhotosByTag(arg1:string):Promise<Array<database.Photo>>;
 

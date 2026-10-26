@@ -5,10 +5,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -63,6 +66,12 @@ func (v VisionAnalyzer) DetectLabels(ctx context.Context, imagePath string) ([]L
 	}
 
 	if err := ctx.Err(); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("หมดเวลาการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง")
+		}
+		if errors.Is(err, context.Canceled) {
+			return nil, err
+		}
 		return nil, err
 	}
 
@@ -125,6 +134,24 @@ func (v VisionAnalyzer) DetectLabels(ctx context.Context, imagePath string) ([]L
 
 	resp, err := client.Do(req)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("หมดเวลาการเชื่อมต่อ Google Cloud Vision กรุณาลองใหม่อีกครั้ง")
+		}
+
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			return nil, fmt.Errorf("ไม่มีการเชื่อมต่ออินเทอร์เน็ต ไม่สามารถวิเคราะห์รูปด้วย Google Cloud Vision ได้")
+		}
+
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "no such host") ||
+			strings.Contains(errMsg, "network is unreachable") ||
+			strings.Contains(errMsg, "i/o timeout") ||
+			strings.Contains(errMsg, "temporary failure in name resolution") ||
+			strings.Contains(errMsg, "dial tcp") {
+			return nil, fmt.Errorf("ไม่มีการเชื่อมต่ออินเทอร์เน็ต ไม่สามารถวิเคราะห์รูปด้วย Google Cloud Vision ได้")
+		}
+
 		return nil, fmt.Errorf("เรียก Google Vision API ไม่สำเร็จ: %w", err)
 	}
 	defer resp.Body.Close()

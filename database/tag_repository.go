@@ -139,7 +139,7 @@ func GetTagCloud(db *gorm.DB) ([]TagCloudItem, error) {
 		Select("tags.id, tags.name, COUNT(photo_tags.photo_id) AS photo_count").
 		Joins("JOIN photo_tags ON photo_tags.tag_id = tags.id").
 		Group("tags.id, tags.name").
-		Having("COUNT(photo_tags.photo_id) >= ?", 2).
+		Having("COUNT(photo_tags.photo_id) >= ?", 1).
 		Order("photo_count DESC, tags.name ASC").
 		Scan(&items).Error
 
@@ -153,4 +153,13 @@ func ClearPhotoTags(db *gorm.DB, photoID uint) error {
 	}
 
 	return db.Where("photo_id = ?", photoID).Delete(&PhotoTag{}).Error
+}
+
+// RemovePhotoTag ลบความสัมพันธ์ระหว่างรูปกับ Tag ที่ระบุ
+func RemovePhotoTag(db *gorm.DB, photoID uint, tagID uint) error {
+	if photoID == 0 || tagID == 0 {
+		return errors.New("ต้องระบุรหัสรูปและ Tag")
+	}
+
+	return db.Where("photo_id = ? AND tag_id = ?", photoID, tagID).Delete(&PhotoTag{}).Error
 }
