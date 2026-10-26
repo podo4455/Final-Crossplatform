@@ -4,6 +4,7 @@ import type { database } from '../../wailsjs/go/models'
 
 const photos = ref<database.Photo[]>([])
 const tagCloud = ref<database.TagCloudItem[]>([])
+const tagSearchKeyword = ref('')
 const selectedTags = ref<string[]>([])
 const matchAll = ref(false)
 const loading = ref(false)
@@ -17,6 +18,12 @@ let searchId = 0
 
 const currentPage = ref(1)
 const itemsPerPage = 12
+
+const filteredTagCloud = computed(() => {
+  const keyword = tagSearchKeyword.value.trim().toLowerCase()
+  if (!keyword) return tagCloud.value
+  return tagCloud.value.filter((tag) => tag.name.toLowerCase().includes(keyword))
+})
 
 const totalPages = computed(() => Math.max(1, Math.ceil(photos.value.length / itemsPerPage)))
 
@@ -160,12 +167,33 @@ onMounted(async () => {
         </button>
       </div>
 
+      <div class="tag-search">
+        <label for="tag-search-input">ค้นหาชื่อ Tag</label>
+        <div class="tag-search-controls">
+          <input
+            id="tag-search-input"
+            v-model="tagSearchKeyword"
+            type="search"
+            placeholder="พิมพ์ชื่อ Tag..."
+            autocomplete="off"
+          />
+          <button
+            v-if="tagSearchKeyword"
+            type="button"
+            class="secondary-button"
+            @click="tagSearchKeyword = ''"
+          >
+            ล้าง
+          </button>
+        </div>
+      </div>
+
       <p v-if="loadingTagCloud" class="subtitle">กำลังโหลด Tag Cloud...</p>
 
-      <div v-else-if="tagCloud.length > 0" class="tag-cloud-wrapper">
+      <div v-else-if="filteredTagCloud.length > 0" class="tag-cloud-wrapper">
         <div class="tag-cloud">
           <button
-            v-for="tag in tagCloud"
+            v-for="tag in filteredTagCloud"
             :key="tag.id"
             class="tag-cloud-item"
             :class="[getTagSize(tag.photoCount), { active: selectedTags.includes(tag.name) }]"
@@ -177,8 +205,9 @@ onMounted(async () => {
         </div>
       </div>
 
+      <p v-else-if="tagCloud.length > 0" class="tag-empty">ไม่พบ Tag ที่ตรงกับคำค้นหา</p>
       <p v-else class="tag-empty">ยังไม่มี Tag ในระบบ</p>
-      <p class="hint">กด Tag เพื่อเลือกได้หลายคำ — เลือกแล้วระบบจะกรองรูปให้อัตโนมัติ</p>
+      <p class="hint">ค้นหาชื่อ Tag ในช่องด้านบน หรือกด Tag เพื่อกรองรูป — ทั้งสองวิธีแยกจากกัน</p>
 
       <div v-if="selectedTags.length > 0" class="selected-bar">
         <span class="selected-label">Tag ที่เลือก:</span>
@@ -274,8 +303,36 @@ onMounted(async () => {
   border-radius: 16px;
 }
 
-.tag-cloud-wrapper {
+.tag-search {
+  display: grid;
+  gap: 8px;
   margin-top: 18px;
+}
+
+.tag-search label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4f5d57;
+}
+
+.tag-search-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tag-search-controls input {
+  flex: 1;
+  min-width: 180px;
+  padding: 10px 14px;
+  border: 1px solid #d7e3dc;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.tag-cloud-wrapper {
+  margin-top: 12px;
   max-height: 220px;
   overflow-y: auto;
   overflow-x: hidden;
